@@ -6,6 +6,8 @@ namespace Trianity\IpAnalyzer\Update;
 
 use Trianity\IpAnalyzer\Lookup\LocalDatabase;
 use Trianity\IpAnalyzer\Support\Clock;
+use Trianity\IpAnalyzer\Update\Progress\Phase;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
 use Trianity\IpAnalyzer\Update\UpdateConfigurationException as InvalidArgumentException;
 
 final class DatabaseUpdater
@@ -19,6 +21,7 @@ final class DatabaseUpdater
         private readonly Clock $clock,
         private readonly Sleeper $sleeper,
         private readonly LocalDatabase $databases,
+        private readonly Progress $progress = new Progress,
     ) {}
 
     /** @param list<string> $databases
@@ -35,7 +38,13 @@ final class DatabaseUpdater
         $targets = $this->options->targets();
         $results = [];
         foreach (array_unique($databases) as $database) {
-            $results[] = $this->one($database, $targets[$database], $force, $check);
+            $this->progress->start(Phase::Configuration, $database);
+            $result = $this->one($database, $targets[$database], $force, $check);
+            $results[] = $result;
+            $this->progress->start(match ($result->status) {
+                'updated' => Phase::Done, 'up_to_date' => Phase::Unchanged,
+                'update_available' => Phase::Available, 'busy' => Phase::Busy, default => Phase::Failed,
+            }, $database);
         }
 
         return $results;
@@ -50,6 +59,7 @@ final class DatabaseUpdater
         $installed = false;
         $state = [];
         try {
+            $this->progress->start(Phase::Lock, $source, waitSeconds: $this->options->integer('lock_timeout'));
             $lock = $this->storage->lock($target, $check, $this->options);
             $state = $this->storage->state($target);
             if (is_int($state['next_retry_at'] ?? null) && $state['next_retry_at'] > $this->clock->now()) {
@@ -75,12 +85,15 @@ final class DatabaseUpdater
             }
             $stage = $this->storage->stage($target, $this->options);
             $get = $this->request('GET', $source, $stage.'/download');
+            $this->progress->start(Phase::Extract, $source);
             $extracted = $this->archive->extract($stage.'/download', $stage, UpdateOptions::EDITIONS[$source], $this->options);
             $new = $this->validator->validate($source, $extracted->database, $this->options);
             if ($old !== null && $new->buildEpoch < $old->buildEpoch) {
                 throw new UpdateFailure('downgrade_rejected');
             }
             $changed = $old === null || $new->sha256 !== $old->sha256;
+            $this->progress->start(Phase::Install, $source);
+            // No cancellation checkpoint between rename and metadata completion.
             // A crash or post-rename metadata error cannot leave an apparently complete state.
             $this->storage->saveState($target, ['pending' => true]);
             if ($changed) {
@@ -123,7 +136,9 @@ final class DatabaseUpdater
     private function request(string $method, string $source, ?string $sink = null): RemoteResponse
     {
         for ($attempt = 0; ; $attempt++) {
+            $this->progress->start($method === 'HEAD' ? Phase::Head : Phase::Download, $source, waitSeconds: $this->options->integer('timeout'));
             $response = $this->transport->request($method, $this->options->url($source), $this->options, $sink);
+            $this->progress->checkpoint();
             if ($response->status === 200 || ($method === 'HEAD' && in_array($response->status, [405, 501], true))) {
                 return $response->status === 200 ? $response : new RemoteResponse(200);
             }
@@ -134,7 +149,9 @@ final class DatabaseUpdater
                 if ($attempt >= $this->options->integer('retries') || $delay > $this->options->integer('max_retry_wait')) {
                     throw new UpdateFailure($response->status === 429 ? 'rate_limited' : 'remote_unavailable', $next);
                 }
+                $this->progress->start(Phase::Retry, $source, waitSeconds: $delay);
                 $this->sleeper->pause($delay);
+                $this->progress->checkpoint();
 
                 continue;
             }

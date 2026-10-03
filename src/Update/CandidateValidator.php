@@ -9,13 +9,16 @@ use MaxMind\Db\Reader\InvalidDatabaseException;
 use Trianity\IpAnalyzer\Enums\LookupStatus;
 use Trianity\IpAnalyzer\Lookup\LocalDatabase;
 use Trianity\IpAnalyzer\Support\Clock;
+use Trianity\IpAnalyzer\Update\Progress\Phase;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
 
 final class CandidateValidator
 {
-    public function __construct(private readonly LocalDatabase $databases, private readonly Clock $clock) {}
+    public function __construct(private readonly LocalDatabase $databases, private readonly Clock $clock, private readonly Progress $progress = new Progress) {}
 
     public function validate(string $source, string $path, UpdateOptions $options, bool $requireEdition = true): ValidatedDatabase
     {
+        $this->progress->start($requireEdition ? Phase::CandidateValidation : Phase::LocalValidation, $source);
         try {
             $inspection = $this->databases->inspectPath($source, $path);
             if ($inspection->status !== LookupStatus::Found || $inspection->metadata === null) {
@@ -39,6 +42,7 @@ final class CandidateValidator
                 $bits = strlen($address) * 8;
                 $count = 0;
                 do {
+                    $this->progress->checkpoint();
                     if (++$count > $options->integer('max_records')) {
                         throw new UpdateFailure('validation_limit');
                     }
@@ -48,6 +52,9 @@ final class CandidateValidator
                     }
                     if ($record !== null) {
                         $this->record($source, $record);
+                    }
+                    if ($count % 256 === 0) {
+                        $this->progress->advance($count);
                     }
                     // Walk disjoint CIDR ranges using the SDK's prefix lengths. No live IP facts.
                     if ($prefix === 0) {
@@ -62,12 +69,33 @@ final class CandidateValidator
                         $index--;
                     }
                 } while ($carry === 0);
+                $this->progress->advance($count, force: true);
             } finally {
                 $reader->close();
             }
-            $hash = @hash_file('sha256', $path);
-            if ($hash === false) {
+            $file = @fopen($path, 'rb');
+            if ($file === false) {
                 throw new UpdateFailure('disk_error');
+            }
+            try {
+                $stat = fstat($file);
+                $this->progress->start(Phase::Hash, $source, $stat === false ? null : $stat['size']);
+                $context = hash_init('sha256');
+                $bytes = 0;
+                while (! feof($file)) {
+                    $this->progress->checkpoint();
+                    $chunk = fread($file, 1048576);
+                    if ($chunk === false || ($chunk === '' && ! feof($file))) {
+                        throw new UpdateFailure('disk_error');
+                    }
+                    hash_update($context, $chunk);
+                    $bytes += strlen($chunk);
+                    $this->progress->advance($bytes);
+                }
+                $hash = hash_final($context);
+                $this->progress->advance($bytes, force: true);
+            } finally {
+                fclose($file);
             }
 
             return new ValidatedDatabase($metadata->buildEpoch, $hash);

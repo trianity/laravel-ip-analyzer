@@ -32,8 +32,12 @@ it('renders a successful check in human and JSON modes', function ($json) {
     $transport->shouldReceive('request')->once()->with('HEAD', Mockery::any(), Mockery::any(), null)->andReturn(new RemoteResponse(200));
     app()->instance(Transport::class, $transport);
     expect(Artisan::call('ip-data:update', ['--database' => ['country'], '--check' => true, '--json' => $json]))->toBe(0);
-    $result = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
-    expect($result['results'][0]['status'])->toBe('update_available')->and($result['partialFailure'])->toBeFalse();
+    if ($json) {
+        $result = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+        expect($result['results'][0]['status'])->toBe('update_available')->and($result['partialFailure'])->toBeFalse();
+    } else {
+        expect(Artisan::output())->toContain('update_available', 'Teljes futási idő');
+    }
 })->with([true, false]);
 
 it('classifies invalid shared lookup settings as configuration errors before HTTP', function () {

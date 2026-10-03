@@ -4,9 +4,9 @@ A V2 csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad
 Nincs automatikus tiltás, regisztrációs döntés vagy telemetria. Hálózati letöltést
 csak a kifejezetten indított frissítés végez.
 
-1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 2.x kiadás
-   telepítése: `composer require trianity/laravel-ip-analyzer:^2.0`.
-   Amíg a kiadás nem érhető el Composerből, használd a
+1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 2.1-es kiadás
+   telepítése: `composer require trianity/laravel-ip-analyzer:^2.1`.
+   Helyi forráskódból történő fejlesztéshez használd a
    [README helyi fejlesztői telepítését](../README.md#local-development-installation).
 2. Publikáld a konfigurációt:
    `php artisan vendor:publish --tag=ip-analyzer-config`.
@@ -107,6 +107,25 @@ php artisan ip-data:update --check --json
 php artisan ip-data:update
 php artisan ip-data:update --database=asn --json
 ```
+
+A 2.1-es verzió human módban alapból jelzi a munkafázist, az aktuális Country/ASN
+adatbázist és az eltelt időt. A teljes helyi integritásvizsgálat `--check` mellett
+is több percig tarthat. A feldolgozott CIDR-tartományok száma valós számláló;
+ismert teljes darabszám nélkül százalék és ETA nem jelenik meg. A hash és az ismert
+méretű letöltés bájtalapú százalékot és elegendő minta után simított fázis-ETA-t ad.
+
+- `--no-progress`: csak a végső human eredmény és teljes futási idő.
+- `--json`: egyetlen végső JSON a STDOUT-on, folyamatjelzés nélkül.
+- `--json --progress`: a folyamatjelzés és időösszegzés kizárólag STDERR-re kerül.
+- `--quiet`: minden kimenetet elnyom, a kifejezetten kért progress-t is.
+
+A `--no-progress` elsőbbséget élvez a `--progress` kapcsolóval szemben.
+Nem TTY kimenetnél ritkított, külön soros jelzés készül, ANSI vezérlés nélkül.
+Opcionális PCNTL-támogatással a Ctrl-C ellenőrzött megszakítást kér: 130-as kilépés,
+reader/staging/lock takarítás. Blokkoló hívásnál ez a következő ellenőrzési pontig
+várhat; a megkezdett atomikus telepítés és state-mentés befejeződik. A korábban már
+telepített adatbázist nem vonja vissza. Megszakítás után ellenőrizd a státuszt;
+SIGKILL-re nincs takarítási garancia. Új kötelező PHP-extension nem szükséges.
 
 A `--check` csak helyi vizsgálatot és HEAD-et végez. A `--force` új GET-et kérhet,
 de nem kapcsolja ki a validációt, a régebbi build tiltását vagy a cooldown-t.

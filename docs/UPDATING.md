@@ -1,4 +1,4 @@
-# Database updates in 2.0
+# Database updates in 2.x
 
 The built-in downloader is an explicit opt-in tool. It is never invoked from
 provider boot, install hooks, web middleware, lookup, status or about. Offline
@@ -243,9 +243,16 @@ php artisan ip-data:update --force
 ```
 
 Default selection is Country + ASN. Unknown names are configuration errors.
-Check wins over force: it never GETs or mutates update state. Both output modes
-use one JSON document (indented for humans), with a `results` array and
-`partialFailure`. Per-target fields include database, status, oldBuildEpoch,
+Check wins over force: it never GETs or mutates update state. The final result
+has a `results` array and `partialFailure`. Since 2.1, human mode surrounds its
+indented JSON result with progress and a total-duration summary. `--no-progress`
+removes phase messages but keeps the final human summary. `--json` alone emits
+exactly one JSON document without progress or a timing field; `--json --progress`
+sends all phase messages and the timing summary exclusively to STDERR.
+`--quiet` overrides explicit progress, and `--no-progress` overrides `--progress`.
+Non-TTY progress uses throttled separate lines without ANSI cursor controls.
+See [progress, ETA and interruption behavior](../README.md#update-progress-21).
+ Per-target fields include database, status, oldBuildEpoch,
 newBuildEpoch, errorCode, warning, nextRetryAt (Unix seconds), and installed.
 
 States are updated, up_to_date, update_available, busy or failed.
@@ -258,6 +265,7 @@ means a download is needed or conservatively required, not proof of a newer buil
 | 1 | Any failure, or busy combined with an actual successful installation |
 | 3 | Busy with no installation and no other failure |
 | 0 | All requested operations succeeded; check may report update_available |
+| 130 | Cooperative Ctrl-C interruption; no overall success is claimed |
 
 A per-target failure can still include installed=true after metadata failure.
 Read all results; partialFailure marks success/installation mixed with failures/busy.

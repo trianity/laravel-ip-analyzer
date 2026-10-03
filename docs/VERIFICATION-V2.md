@@ -1,6 +1,6 @@
 # V2 verification record — 2026-10-03
 
-Target: 2.0.0, unreleased. This record covers the explicit updater and preservation
+Release: 2.0.0 — 2026-10-03. This record covers the explicit updater and preservation
 of the 1.x offline lookup API. No live MaxMind credentials/downloads, consuming
 application changes, release tag, push or publication were performed.
 

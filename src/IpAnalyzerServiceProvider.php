@@ -15,6 +15,7 @@ use Trianity\IpAnalyzer\Contracts\IpLookup;
 use Trianity\IpAnalyzer\Lookup\MaxMindIpLookup;
 use Trianity\IpAnalyzer\Support\PackageVersion;
 use Trianity\IpAnalyzer\Update\GuzzleTransport;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
 use Trianity\IpAnalyzer\Update\Transport;
 
 final class IpAnalyzerServiceProvider extends ServiceProvider
@@ -22,7 +23,8 @@ final class IpAnalyzerServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/ip-analyzer.php', 'ip-analyzer');
-        $this->app->bind(Transport::class, fn () => new GuzzleTransport);
+        $this->app->singleton(Progress::class);
+        $this->app->bind(Transport::class, fn ($app) => new GuzzleTransport(progress: $app->make(Progress::class)));
         $this->app->bind(IpLookup::class, MaxMindIpLookup::class);
         $this->app->bind(IpAnalyzer::class, LocalIpAnalyzer::class);
     }

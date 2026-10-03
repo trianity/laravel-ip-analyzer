@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Trianity\IpAnalyzer\Update;
 
+use Trianity\IpAnalyzer\Update\Progress\Progress;
+
 class UpdateStorage
 {
+    public function __construct(private readonly Progress $progress = new Progress) {}
+
     public function directory(string $target): string
     {
         return dirname($target).'/.ip-analyzer-'.hash('sha256', $target);
@@ -39,18 +43,28 @@ class UpdateStorage
         if (! $check) {
             @chmod($directory.'/update.lock', 0600);
         }
-        $deadline = microtime(true) + $options->integer('lock_timeout');
-        do {
-            if (flock($lock, LOCK_EX | LOCK_NB)) {
-                return $lock;
+        $deadline = hrtime(true) + $options->integer('lock_timeout') * 1_000_000_000;
+        $acquired = false;
+        try {
+            do {
+                $this->progress->checkpoint();
+                if (flock($lock, LOCK_EX | LOCK_NB)) {
+                    $acquired = true;
+
+                    return $lock;
+                }
+                if (hrtime(true) >= $deadline) {
+                    break;
+                }
+                $this->progress->advance(0);
+                usleep(50000);
+            } while (true);
+            throw new UpdateFailure('busy');
+        } finally {
+            if (! $acquired) {
+                fclose($lock);
             }
-            if (microtime(true) >= $deadline) {
-                break;
-            }
-            usleep(50000);
-        } while (true);
-        fclose($lock);
-        throw new UpdateFailure('busy');
+        }
     }
 
     /** @param resource|null $lock */

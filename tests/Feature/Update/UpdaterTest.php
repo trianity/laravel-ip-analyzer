@@ -7,6 +7,12 @@ use Illuminate\Support\Facades\Artisan;
 use Trianity\IpAnalyzer\Contracts\IpLookup;
 use Trianity\IpAnalyzer\Update\DatabaseUpdater;
 use Trianity\IpAnalyzer\Update\GuzzleTransport;
+use Trianity\IpAnalyzer\Update\Progress\Interrupted;
+use Trianity\IpAnalyzer\Update\Progress\NullObserver;
+use Trianity\IpAnalyzer\Update\Progress\Observer;
+use Trianity\IpAnalyzer\Update\Progress\Phase;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
+use Trianity\IpAnalyzer\Update\Progress\Snapshot;
 use Trianity\IpAnalyzer\Update\RemoteResponse;
 use Trianity\IpAnalyzer\Update\Sleeper;
 use Trianity\IpAnalyzer\Update\Transport;
@@ -365,4 +371,57 @@ it('preserves downgrade protection for a manually installed GeoIP2 Country datab
     $result = app(DatabaseUpdater::class)->run(['country'], force: true)[0];
     expect($result->errorCode)->toBe('downgrade_rejected')
         ->and(file_get_contents($this->directory.'/country.mmdb'))->toBe($bytes);
+});
+
+it('releases staging and lock and preserves old data when cancelled during extraction', function () {
+    $target = $this->directory.'/country.mmdb';
+    copy(__DIR__.'/../../Fixtures/country.mmdb', $target);
+    $before = hash_file('sha256', $target);
+    app()->instance(Transport::class, updateTransport('country-next'));
+    $progress = app(Progress::class);
+    $progress->observe(new class($progress) implements Observer
+    {
+        public function __construct(private $progress) {}
+
+        public function report(Snapshot $s): void
+        {
+            if ($s->phase === Phase::Extract) {
+                $this->progress->cancel();
+            }
+        }
+    });
+    expect(fn () => app(DatabaseUpdater::class)->run(['country']))->toThrow(Interrupted::class);
+    $storage = app(UpdateStorage::class);
+    expect(hash_file('sha256', $target))->toBe($before)
+        ->and(glob($storage->directory($target).'/stage-*'))->toBe([]);
+    $progress->observe(new NullObserver);
+    $lock = $storage->lock($target, false, app(UpdateOptions::class));
+    $storage->unlock($lock);
+    expect(app(IpLookup::class)->lookup('8.8.8.8')->countryCode)->toBe('HU');
+});
+
+it('keeps atomic installation metadata consistent if interrupted just after rename', function () {
+    app()->instance(Transport::class, updateTransport());
+    $progress = app(Progress::class);
+    $storage = new class($progress) extends UpdateStorage
+    {
+        public function __construct(private $progress)
+        {
+            parent::__construct($progress);
+        }
+
+        public function install(string $candidate, string $target): void
+        {
+            parent::install($candidate, $target);
+            $this->progress->cancel();
+        }
+    };
+    app()->instance(UpdateStorage::class, $storage);
+    expect(fn () => app(DatabaseUpdater::class)->run(['country']))->toThrow(Interrupted::class);
+    $target = $this->directory.'/country.mmdb';
+    expect($storage->state($target)['pending'])->toBeFalse()
+        ->and(glob($storage->directory($target).'/stage-*'))->toBe([])
+        ->and(app(IpLookup::class)->lookup('8.8.8.8')->countryCode)->toBe('HU');
+    $progress->observe(new NullObserver);
+    expect(app(DatabaseUpdater::class)->run(['country'])[0]->status)->toBe('up_to_date');
 });

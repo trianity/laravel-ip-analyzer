@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.0.0 (unreleased)** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.1.0** · Released **2026-10-04** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -14,15 +14,16 @@ empty match list does not certify safety.
 ## Installation and use
 
 Requirements: PHP 8.4 or 8.5, Laravel 12 or 13, and the PHP cURL and zlib extensions.
-For a published 2.x release:
+Install the published 2.1 release:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:^2.0
+composer require trianity/laravel-ip-analyzer:^2.1
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
-The stable install command requires the release to be available in your Composer
-repository. To work with an unreleased checkout, use the
+Releases are available on [GitHub](https://github.com/trianity/laravel-ip-analyzer/releases)
+and [Packagist](https://packagist.org/packages/trianity/laravel-ip-analyzer).
+For a local source checkout, use the
 [local development installation](#local-development-installation).
 
 The provider is autodiscovered. Configure local files outside the public web root:
@@ -227,6 +228,47 @@ filesystem/platform constraints. Upgrading from 1.x does not require overwriting
 a published config: new update options receive defaults. Add credentials to the
 environment used when building the config cache; republishing with `--force`
 would overwrite your custom rules and paths.
+
+## Update progress (2.1)
+
+Human `ip-data:update` output announces work before expensive validation and
+shows Country/ASN, the phase, measured work and elapsed time. A complete local
+integrity scan can take several minutes, including with `--check`; validation
+depth and update decisions are unchanged.
+
+```sh
+php artisan ip-data:update --check               # default human progress
+php artisan ip-data:update --no-progress        # final result and total duration only
+php artisan ip-data:update --json               # one final JSON document on STDOUT
+php artisan ip-data:update --json --progress     # progress and duration on STDERR
+```
+
+`--quiet` suppresses all output, including explicit `--progress`.
+`--no-progress` takes precedence over `--progress`. Non-TTY output uses separate
+lines without ANSI cursor control; terminal detection uses the selected output
+channel. Human output includes a final total duration; the JSON result schema is
+unchanged. Use `--json` for machine parsing.
+
+Record traversal reports actual processed CIDR ranges with unknown total and ETA;
+metadata nodeCount is not a compatible denominator. Hashing and downloads can
+show byte percentages when total size is known. Missing Content-Length means no
+download percentage or ETA. Phase ETA uses a monotonic clock and smoothed speed,
+starts only after at least one second and two samples, and becomes unknown during
+a stall. It is not an estimate for the whole command. Samples are limited to four
+per second; non-TTY output updates at most every five seconds within a phase.
+Phase changes and completion bypass throttling. `--check` never shows download,
+extraction or installation as performed phases.
+
+Where optional PHP PCNTL signal handling is available, Ctrl-C requests cooperative
+cancellation, reports interruption and exits 130. Readers, staging files and owned
+locks are released at safe checkpoints. An in-flight blocking call may delay
+cancellation until it returns or reaches a callback/timeout. Installation already
+in its atomic rename/state section is completed before cancellation is observed;
+a previously completed database is not rolled back. Inspect status and rerun to
+reconcile an interrupted command; its JSON error does not claim overall success.
+No cleanup guarantee is made for SIGKILL. PCNTL is not a package requirement.
+
+See [2.1 verification](docs/VERIFICATION-2.1.md) for tests and platform limits.
 
 ## Manual data maintenance
 

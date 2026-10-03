@@ -7,6 +7,7 @@ namespace Trianity\IpAnalyzer\Update;
 use GuzzleHttp\Psr7\StreamDecoratorTrait;
 use GuzzleHttp\Psr7\Utils;
 use Psr\Http\Message\StreamInterface;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
 
 final class BoundedSink implements StreamInterface
 {
@@ -14,11 +15,13 @@ final class BoundedSink implements StreamInterface
 
     public int $bytes = 0;
 
+    public ?int $total = null;
+
     public ?UpdateFailure $failure = null;
 
     public bool $accept = false;
 
-    public function __construct(?string $path, private readonly int $limit)
+    public function __construct(?string $path, private readonly int $limit, private readonly Progress $progress = new Progress)
     {
         $resource = $path === null ? null : @fopen($path, 'wb');
         if ($resource === false) {
@@ -29,6 +32,7 @@ final class BoundedSink implements StreamInterface
 
     public function write(#[\SensitiveParameter] string $string): int
     {
+        $this->progress->checkpoint();
         $length = strlen($string);
         $this->bytes += $length;
         if ($this->bytes > $this->limit) {
@@ -43,9 +47,11 @@ final class BoundedSink implements StreamInterface
                 throw new \RuntimeException;
             }
 
-            return $written;
         } catch (\Throwable) {
             throw $this->failure = new UpdateFailure('disk_error');
         }
+        $this->progress->advance($this->bytes, $this->total);
+
+        return $written;
     }
 }

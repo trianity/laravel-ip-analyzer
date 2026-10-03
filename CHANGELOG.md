@@ -4,7 +4,28 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
-## [2.0.0] - Unreleased
+## [2.1.0] - 2026-10-04
+
+### Added
+
+- Default human update progress, including early configuration/validation notices,
+  separate Country/ASN phases, real CIDR-range counts and streamed SHA-256 bytes.
+- Byte-based download progress with percentages only for known totals; monotonic,
+  smoothed phase ETA after a warmup, and explicit unknown ETA for record traversal.
+- Typed progress observers independent of Console, with a no-op default for services.
+- `--progress` / `--no-progress`, STDERR-only progress for `--json --progress`, quiet
+  precedence, channel-specific TTY handling and a final human total duration.
+- Optional cooperative SIGINT cancellation with exit 130, resource cleanup, prior
+  signal-handler restoration and deferred interruption during atomic installation.
+- Offline progress, timing, output-routing and cancellation regression tests.
+
+### Changed
+
+- Human update output includes phase messages; use `--json` for machine parsing.
+  The final JSON schema, validation depth, update decisions and security checks
+  remain unchanged. No new required PHP extension or Composer dependency.
+
+## [2.0.0] - 2026-10-03
 
 ### Added
 

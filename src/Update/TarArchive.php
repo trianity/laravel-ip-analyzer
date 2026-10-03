@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Trianity\IpAnalyzer\Update;
 
+use Trianity\IpAnalyzer\Update\Progress\Progress;
+
 final class TarArchive
 {
+    public function __construct(private readonly Progress $progress = new Progress) {}
+
     public function extract(string $download, string $stage, string $edition, UpdateOptions $options): ExtractedArchive
     {
+        $this->progress->checkpoint();
         $tar = $stage.'/expanded.tar';
         $this->inflate($download, $tar, $options->integer('max_expanded_bytes'));
         $file = @fopen($tar, 'rb');
@@ -26,6 +31,7 @@ final class TarArchive
                         throw new UpdateFailure('invalid_tar');
                     }
                     while (! feof($file)) {
+                        $this->progress->checkpoint();
                         $rest = fread($file, 8192);
                         if ($rest === false || trim($rest, "\0") !== '') {
                             throw new UpdateFailure('invalid_tar');
@@ -151,6 +157,7 @@ final class TarArchive
             $bytes = 0;
             $inputBytes = 0;
             while (! feof($input)) {
+                $this->progress->checkpoint();
                 $compressed = fread($input, 8192);
                 if ($compressed === false) {
                     throw new UpdateFailure('invalid_gzip');
@@ -170,6 +177,7 @@ final class TarArchive
                 if ($data !== '' && @fwrite($output, $data) !== strlen($data)) {
                     throw new UpdateFailure('disk_error');
                 }
+                $this->progress->advance($bytes);
                 if (inflate_get_status($context) === ZLIB_STREAM_END) {
                     if (inflate_get_read_len($context) !== $inputBytes || fread($input, 1) !== '') {
                         throw new UpdateFailure('invalid_gzip');
@@ -177,6 +185,7 @@ final class TarArchive
                     break;
                 }
             }
+            $this->progress->advance($bytes, force: true);
             if (inflate_get_status($context) !== ZLIB_STREAM_END || $bytes % 512 !== 0) {
                 throw new UpdateFailure('invalid_gzip');
             }
@@ -196,6 +205,7 @@ final class TarArchive
         }
         $result = '';
         while (strlen($result) < $length) {
+            $this->progress->checkpoint();
             $chunk = fread($file, $length - strlen($result));
             if ($chunk === false || $chunk === '') {
                 throw new UpdateFailure('truncated_archive');

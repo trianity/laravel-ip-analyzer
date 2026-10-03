@@ -13,20 +13,25 @@ use GuzzleHttp\Psr7\Uri;
 use GuzzleHttp\Psr7\UriResolver;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
+use Trianity\IpAnalyzer\Update\Progress\Interrupted;
+use Trianity\IpAnalyzer\Update\Progress\Progress;
 
 final class GuzzleTransport implements Transport
 {
     /** @param HandlerStack<callable>|null $handler */
-    public function __construct(private readonly ?HandlerStack $handler = null) {}
+    public function __construct(private readonly ?HandlerStack $handler = null, private readonly Progress $progress = new Progress) {}
 
     public function request(string $method, #[\SensitiveParameter] string $url, #[\SensitiveParameter] UpdateOptions $options, ?string $sink = null): RemoteResponse
     {
         try {
             return $this->perform($method, $url, $options, $sink);
+        } catch (Interrupted) {
+            throw new Interrupted;
         } catch (UpdateFailure $e) {
             // Rebuild at the public boundary to discard internal callback arguments.
             throw new UpdateFailure($e->errorCode, $e->retryAt);
         } catch (Throwable) {
+            $this->progress->checkpoint();
             // Never retain the request exception as "previous": URLs and auth are secrets.
             throw new UpdateFailure('transport_failed');
         }
@@ -39,14 +44,15 @@ final class GuzzleTransport implements Transport
         }
         $client = new Client(['handler' => $this->handler ?? HandlerStack::create(new CurlHandler)]);
         $visited = [];
-        $started = microtime(true);
+        $started = hrtime(true);
         for ($hop = 0; ; $hop++) {
+            $this->progress->checkpoint();
             $this->validateUrl($url, $options);
             if (isset($visited[$url]) || $hop > $options->integer('max_redirects')) {
                 throw new UpdateFailure('redirect_limit');
             }
             $visited[$url] = true;
-            $remaining = $options->integer('timeout') - (microtime(true) - $started);
+            $remaining = $options->integer('timeout') - ((hrtime(true) - $started) / 1_000_000_000);
             if ($remaining <= 0) {
                 throw new UpdateFailure('timeout');
             }
@@ -55,13 +61,17 @@ final class GuzzleTransport implements Transport
                 [$id, $key] = $options->credentials();
                 $headers['Authorization'] = 'Basic '.base64_encode($id.':'.$key);
             }
-            $download = new BoundedSink($method === 'GET' ? $sink : null, $options->integer('max_bytes'));
+            $download = new BoundedSink($method === 'GET' ? $sink : null, $options->integer('max_bytes'), $this->progress);
             try {
                 $response = $client->send(new Request($method, $url, $headers), [
                     'allow_redirects' => false, 'http_errors' => false, 'verify' => true,
                     'cookies' => false, 'decode_content' => false,
                     'connect_timeout' => min($remaining, $options->integer('connect_timeout')),
                     'timeout' => $remaining, 'debug' => false, 'sink' => $download,
+                    'progress' => function () use ($download): void {
+                        $this->progress->checkpoint();
+                        $this->progress->advance($download->bytes, $download->total);
+                    },
                     'on_headers' => function ($response) use ($download, $method, $options): void {
                         $download->accept = $method === 'GET' && $response->getStatusCode() === 200;
                         if (! $download->accept) {
@@ -75,10 +85,12 @@ final class GuzzleTransport implements Transport
                         if ($length !== '' && (! ctype_digit($length) || (float) $length > $options->integer('max_bytes'))) {
                             throw $download->failure = new UpdateFailure('download_too_large');
                         }
+                        $download->total = $length === '' ? null : (int) $length;
                     },
                 ]);
             } catch (Throwable) {
                 $download->close();
+                $this->progress->checkpoint();
                 throw $download->failure ?? new UpdateFailure('transport_failed');
             }
             $body = $response->getBody();
@@ -114,11 +126,12 @@ final class GuzzleTransport implements Transport
                     if ($length !== '' && (! ctype_digit($length) || (float) $length > $options->integer('max_bytes'))) {
                         throw new UpdateFailure('download_too_large');
                     }
+                    $download->total = $length === '' ? null : (int) $length;
                     // Mock handlers may return a body without applying the sink. Production
                     // CurlHandler has already streamed through BoundedSink during transfer.
                     if ($download->bytes === 0) {
                         while (! $body->eof()) {
-                            if (microtime(true) - $started > $options->integer('timeout')) {
+                            if ((hrtime(true) - $started) / 1_000_000_000 > $options->integer('timeout')) {
                                 throw new UpdateFailure('timeout');
                             }
                             $chunk = $this->readChunk($body);
@@ -131,6 +144,11 @@ final class GuzzleTransport implements Transport
                     if ($download->bytes === 0 || ($length !== '' && $download->bytes !== (int) $length)) {
                         throw new UpdateFailure('interrupted_stream');
                     }
+                }
+
+                $this->progress->checkpoint();
+                if ($method === 'GET' && $status === 200) {
+                    $this->progress->advance($download->bytes, $download->total, force: true);
                 }
 
                 return new RemoteResponse($status, $validator, $retryAt, $this->etagHash($response->getHeaderLine('ETag')), $this->date($response->getHeaderLine('Last-Modified')));
