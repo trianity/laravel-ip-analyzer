@@ -27,3 +27,12 @@ the public lookup guard is not weakened. Corruption tests read README.md as MMDB
 Exact fixture paths are exempted from .gitignore. All tests, including fixtures,
 are intentionally excluded from distribution archives by .gitattributes; no
 production MMDB path is exempted. Source checkouts used by CI retain the fixtures.
+
+## V2 archive fixtures
+
+`update-archives.php` is original MIT test code (revision 1) that generates
+deterministic USTAR headers, gzip archives and PAX records in memory from the
+same synthetic MMDB files. Tests materialize them only in private temporary
+directories. No downloaded MaxMind archive or third-party data is included.
+Corruption, traversal, link/special entries and size-limit cases are generated
+explicitly by the tests. No binary tar.gz fixture needs to be tracked.

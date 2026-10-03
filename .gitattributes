@@ -16,3 +16,9 @@
 /.agents export-ignore
 /.codex export-ignore
 /docs/CODEX-TDD-PROMPT.md export-ignore
+
+.ip-analyzer-* export-ignore
+**/.ip-analyzer-*/** export-ignore
+*.tar export-ignore
+*.gz export-ignore
+*.zip export-ignore

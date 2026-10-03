@@ -4,6 +4,41 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.0.0] - Unreleased
+
+### Added
+
+- Explicit `ip-data:update` for initial GeoLite2-Country/ASN acquisition and updates,
+  with database selection, force/check modes, stable JSON and partial-failure reporting.
+- HTTPS Basic Auth scoped to the MaxMind download origin, validated manual redirects
+  to approved R2 hosts, bounded cURL streaming and sanitized transport failures.
+- HEAD-based freshness checks using successful-install validators, file identity and
+  content hashes; bounded transient retries and persistent Retry-After cooldown.
+- Streaming gzip/TAR validation with entry/size limits, safe PAX/GNU path handling,
+  notice preservation and rejection of traversal, links, special files and ambiguous MMDBs.
+- SDK-based candidate metadata and reachable-network record validation, build-epoch
+  downgrade prevention and no-op handling for identical files.
+- Per-target filesystem locks, same-filesystem private staging and atomic database/state
+  replacement with explicit recovery after post-install state or notice failures.
+- Backward-compatible defaults for published 1.x configs and an application-owned,
+  opt-in six-hour scheduler example.
+- Offline transport/archive/installation/failure tests and a V2 operating guide.
+
+### Changed
+
+- Direct runtime dependencies now declare Guzzle, PSR-7/HTTP Message and the low-level
+  MaxMind reader. PHP cURL and zlib extensions are required for the built-in downloader.
+- `ip-data:update` is the only package command that performs outbound network requests.
+  Existing lookup/status/about contracts, manual data use and rule behavior remain intact.
+
+### Limits
+
+- No tag or publication is performed by this implementation. Tests use synthetic
+  credentials and local fixtures; the account owner performs the first real download.
+- Only binary tar.gz downloads are supported; ZIP/CSV and bare mmdb.gz are rejected.
+- Atomic replacement was tested on local Linux filesystems; distributed storage
+  locking, power-loss recovery and Windows replacement are not certified.
+
 ## [1.0.0] - 2026-10-03
 
 Initial release.

@@ -15,3 +15,8 @@
 /docs/CODEX-TDD-PROMPT.md
 /.phpstan.cache/
 /.pest/
+
+# Updater state, notices, locks and staging (never distribute account data).
+.ip-analyzer-*/
+*.tar
+*.gz

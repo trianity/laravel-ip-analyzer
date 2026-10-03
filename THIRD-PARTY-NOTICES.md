@@ -28,3 +28,13 @@ https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/
 No license key is needed by this package at runtime. Do not commit credentials
 or production MMDB data. An operational stale threshold does not replace the
 applicable data terms or guarantee freshness/accuracy.
+
+V2 declares the downloader's direct dependencies explicitly: guzzlehttp/guzzle,
+guzzlehttp/psr7 and psr/http-message use MIT; maxmind-db/reader uses Apache-2.0.
+Guzzle's cURL handler enforces transport timeouts and streams bytes, PSR-7 supplies
+request/URI/stream handling, and the low-level reader traverses candidate records.
+PHP cURL and zlib extensions provide transport and bounded gzip decoding;
+no external archive package or shell extraction tool is used.
+Only the explicit updater uses a network client. Local lookup still uses the
+GeoIp2 database reader exclusively. Archive LICENSE/COPYRIGHT/README contents
+are preserved separately beside the installed data and retain their own terms.

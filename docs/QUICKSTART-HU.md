@@ -1,10 +1,11 @@
 # Magyar quickstart
 
-A V1 csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad.
-Nincs automatikus tiltás, regisztrációs döntés, letöltés vagy telemetria.
+A V2 csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad.
+Nincs automatikus tiltás, regisztrációs döntés vagy telemetria. Hálózati letöltést
+csak a kifejezetten indított frissítés végez.
 
-1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 1.x kiadás
-   telepítése: `composer require trianity/laravel-ip-analyzer:^1.0`.
+1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 2.x kiadás
+   telepítése: `composer require trianity/laravel-ip-analyzer:^2.0`.
    Amíg a kiadás nem érhető el Composerből, használd a
    [README helyi fejlesztői telepítését](../README.md#local-development-installation).
 2. Publikáld a konfigurációt:
@@ -41,7 +42,63 @@ Frissítéskor az új fájlokat privát staging helyen ellenőrizd: eredet/check
 pontos adatbázistípus, build-idő, olvashatóság, szükség esetén ismert rekordok.
 Az azonos fájlrendszeren validált fájlt atomikus rename-nel cseréld, ne írd felül
 helyben a használatban lévő fájlt. A következő lookup az új fájlt olvassa.
-A két külön adatbázis cseréje nem közös tranzakció. Automatizált frissítő nincs a V1-ben.
+A két külön adatbázis cseréje nem közös tranzakció. A V2 frissítőparancsa ugyanezt a fájlonként atomikus cserét végzi.
 
 A saját kód MIT; a letöltött adatbázis és a függőségek licence külön kezelendő.
 A stale-küszöb nem licencgarancia. Részletek és pontos IP-kategóriák a README-ben.
+
+
+## Első letöltés és későbbi frissítés
+
+A MaxMind-fiók Account ID-ját és egy külön létrehozott License Key-t add meg;
+nem a fiók belépési jelszavát. Az alábbiak kizárólag helyőrzők:
+
+```dotenv
+IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
+IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
+IP_ANALYZER_UPDATE_SCHEDULE=false
+```
+
+PHP cURL és zlib szükséges. A célkönyvtár a webgyökéren kívül legyen, az updater
+felhasználója írhassa; a letöltött fájlok 0600, a privát munkakönyvtárak 0700
+jogosultságot kapnak. A lookupot lehetőleg ugyanazzal az OS-felhasználóval futtasd.
+A config cache-t az új env értékekkel építsd újra, majd a hosszú életű folyamatokat
+töltsd újra. A Laravel konfigurációs cache hitelesítő adatokat is tartalmazhat:
+ugyanúgy védd, mint az alkalmazás többi titkos konfigurációját.
+
+```sh
+php artisan ip-data:update --check --json
+php artisan ip-data:update
+php artisan ip-data:update --database=asn --json
+```
+
+A `--check` csak helyi vizsgálatot és HEAD-et végez. A `--force` új GET-et kérhet,
+de nem kapcsolja ki a validációt, a régebbi build tiltását vagy a cooldown-t.
+A korábbi 1.x konfiguráció megtartható; az új opciók alapértékeket kapnak.
+Ne írd felül ellenőrizetlenül a publisholt fájlt, mert abban saját szabályok lehetnek.
+
+Az ütemezés alkalmazásoldali opt-in. Laravel `routes/console.php` példa:
+
+```php
+use Illuminate\Support\Facades\Schedule;
+
+if (config('ip-analyzer.update.schedule_enabled', false)) {
+    Schedule::command('ip-data:update')->everySixHours()->withoutOverlapping();
+}
+```
+
+A csomag önmagában nem regisztrál ütemezett feladatot. A fenti kód és az
+`IP_ANALYZER_UPDATE_SCHEDULE=true` együtt engedélyezi az alkalmazás normál
+schedulerében; nincs párhuzamos automatikus regisztráció.
+
+Updater kilépési kódok: 0 minden vizsgálat/művelet sikerült; 1 hiba vagy részleges
+frissítés; 2 hibás input/config vagy hiányzó credential; 3 foglalt lock, telepítés
+nem történt. A sikeres Country-t nem vonja vissza egy ASN-hiba.
+A `partialFailure` és az egyes eredmények `installed` mezője mutatja a tényleges helyzetet.
+
+Kifelé HTTPS/443 és DNS kell a MaxMind download hosthoz és a dokumentált R2 hosthoz.
+Az updater állapota, lockja, notice-ai és stagingje a cél mellett, egy
+`.ip-analyzer-<célhash>` privát könyvtárban található. State/notice-mentési hiba
+után a jelölt már lehet telepítve: az eredmény ezt külön jelzi, a következő
+futtatás újraellenőriz. Ne töröld a lockfájlt aktív frissítés közben.
+A részletes limitek, források, helyreállítás és korlátok: [UPDATING.md](UPDATING.md).

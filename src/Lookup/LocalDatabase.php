@@ -49,6 +49,22 @@ final class LocalDatabase
             throw new InvalidArgumentException('Unknown database source.');
         }
         [$path, $maxAge] = $this->settings($source);
+
+        return $this->readFile($source, $path, $maxAge, $ip);
+    }
+
+    public function inspectPath(string $source, string $path): SourceResult
+    {
+        if (! in_array($source, ['country', 'asn'], true) || str_contains($path, '://') || str_contains($path, "\0")) {
+            throw new InvalidArgumentException('Invalid local database inspection.');
+        }
+        [, $maxAge] = $this->settings($source);
+
+        return $this->readFile($source, $path, $maxAge);
+    }
+
+    private function readFile(string $source, string $path, int $maxAge, ?string $ip = null): SourceResult
+    {
         clearstatcache(true, $path);
         if (! is_file($path) || ! is_readable($path)) {
             return new SourceResult(LookupStatus::Unavailable, errorCode: 'file_unreadable');

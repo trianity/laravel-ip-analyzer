@@ -1,10 +1,11 @@
 # Laravel IP Analyzer
 
-Documentation for **1.0.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.0.0 (unreleased)** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
-files; lookups and diagnostics perform no HTTP, DNS, downloads or telemetry.
+files; lookups and read-only diagnostics perform no HTTP, DNS, downloads or telemetry.
+The explicit `ip-data:update` command can acquire and update these files over HTTPS.
 
 The package does not make signup decisions, block requests, assign a global risk
 score or ship an application blacklist. Country/ASN data is not bot evidence; an
@@ -12,10 +13,11 @@ empty match list does not certify safety.
 
 ## Installation and use
 
-Requirements: PHP 8.4 or 8.5 and Laravel 12 or 13. For a published 1.x release:
+Requirements: PHP 8.4 or 8.5, Laravel 12 or 13, and the PHP cURL and zlib extensions.
+For a published 2.x release:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:^1.0
+composer require trianity/laravel-ip-analyzer:^2.0
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
@@ -169,6 +171,43 @@ A future-build flag alone does not change the exit code. Commands never download
 data or create directories/databases. `about` reads the installed Composer version,
 with a root-package/development fallback, and does not open MMDB files.
 
+## Optional downloads and updates (2.0)
+
+Manual MMDB installation still works without credentials. For the built-in updater,
+create a MaxMind license key and configure your **Account ID and License Key**,
+not your account login password:
+
+```dotenv
+IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
+IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
+IP_ANALYZER_UPDATE_SCHEDULE=false
+```
+
+```sh
+php artisan ip-data:update --check --json
+php artisan ip-data:update
+php artisan ip-data:update --database=country
+php artisan ip-data:update --force --json
+```
+
+The first invocation downloads missing files. Later invocations use HEAD and
+the installed file/state to avoid unnecessary GETs. Candidates are bounded,
+extracted in private staging, validated using the MMDB reader, and renamed
+atomically per file. Older build epochs are rejected even with `--force`.
+`--check` performs only local reads and HEAD, without installing or writing state.
+
+Downloads use HTTPS, origin-scoped Basic Auth and a checked redirect allowlist.
+Successful lookups, provider boot, status/about and Composer installation never
+start downloads. Long Retry-After responses persist a cooldown for normal update
+runs; `--force` cannot bypass it.
+
+See [the updater guide](docs/UPDATING.md) for source URLs, configuration limits,
+scheduler opt-in, status/exit codes, credential handling, notices, recovery and
+filesystem/platform constraints. Upgrading from 1.x does not require overwriting
+a published config: new update options receive defaults. Add credentials to the
+environment used when building the config cache; republishing with `--force`
+would overwrite your custom rules and paths.
+
 ## Manual data maintenance
 
 Obtain Country and ASN databases manually from
@@ -190,7 +229,8 @@ applicable terms. The package does not supply production databases or credential
    status with the application's normal config again.
 
 An operator-controlled atomic rename preserves active readers and lets the next
-operation see the replacement. Automated downloads/replacement are a V2 topic.
+operation see the replacement. The optional V2 updater performs this workflow
+without changing offline lookup behavior.
 
 ## Development and compatibility
 
@@ -238,8 +278,9 @@ php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
 Package versions come from Git tags; `composer.json` deliberately has no
-`version` field. See [1.0.0 verification](docs/RELEASE-1.0.0.md) for the local
-release checks and the publication steps still outstanding.
+`version` field. See [2.0 verification](docs/VERIFICATION-V2.md) for the local
+implementation checks and known limits. The 1.0 verification remains in
+[the historical release record](docs/RELEASE-1.0.0.md).
 
 ## Licenses and limits
 

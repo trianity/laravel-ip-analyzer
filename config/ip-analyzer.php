@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use Trianity\IpAnalyzer\Update\UpdateOptions;
 
 return [
     'databases' => [
@@ -17,4 +18,11 @@ return [
     ],
     // Ordered list of Rule class names, resolved through the Laravel container.
     'custom_rules' => [],
+    // Only the explicit update command uses these credentials and network settings.
+    'update' => [
+        ...UpdateOptions::defaults(),
+        'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
+        'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
+        'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+    ],
 ];
