@@ -14,7 +14,7 @@ final class CandidateValidator
 {
     public function __construct(private readonly LocalDatabase $databases, private readonly Clock $clock) {}
 
-    public function validate(string $source, string $path, UpdateOptions $options): ValidatedDatabase
+    public function validate(string $source, string $path, UpdateOptions $options, bool $requireEdition = true): ValidatedDatabase
     {
         try {
             $inspection = $this->databases->inspectPath($source, $path);
@@ -22,7 +22,7 @@ final class CandidateValidator
                 throw new UpdateFailure($inspection->errorCode ?? 'invalid_database');
             }
             $metadata = $inspection->metadata;
-            if ($metadata->databaseType !== UpdateOptions::EDITIONS[$source]) {
+            if ($requireEdition && $metadata->databaseType !== UpdateOptions::EDITIONS[$source]) {
                 throw new UpdateFailure('database_type_mismatch');
             }
             if ($metadata->buildEpoch <= 0 || $metadata->buildEpoch > $this->clock->now()) {

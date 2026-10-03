@@ -50,14 +50,50 @@ A stale-küszöb nem licencgarancia. Részletek és pontos IP-kategóriák a REA
 
 ## Első letöltés és későbbi frissítés
 
-A MaxMind-fiók Account ID-ját és egy külön létrehozott License Key-t add meg;
-nem a fiók belépési jelszavát. Az alábbiak kizárólag helyőrzők:
+Lépj be a [MaxMind-fiókodba](https://www.maxmind.com/en/account/sign-in).
+Az adatokat innen szerezheted be:
+
+- **AccountID:** az Account Information oldalon található
+  ([hivatalos útmutató](https://support.maxmind.com/knowledge-base/articles/find-your-maxmind-account-id)).
+- **LicenseKey:** a [License Keys oldalon](https://www.maxmind.com/en/accounts/current/license-key)
+  hozz létre külön kulcsot
+  ([útmutató](https://support.maxmind.com/knowledge-base/articles/generate-a-maxmind-license-key));
+  ez nem a fiók belépési jelszava.
+- **EditionIDs:** az elérhető adatbázisokat és a Get Permalink(s) hivatkozásokat a
+  [Download Databases oldalon](https://www.maxmind.com/en/accounts/current/geoip/downloads)
+  találod. A csomag a `GeoLite2-Country` és `GeoLite2-ASN` kiadásokat támogatja.
+
+Az értékeket a **csomagot használó Laravel host alkalmazás `.env` fájljában**
+(vagy a telepítési környezet változóiban) add meg, ne a csomag vagy a `vendor`
+könyvtárában. Az alábbiak kizárólag helyőrzők:
 
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
 ```
+
+A host alkalmazás `config/ip-analyzer.php` fájljának `update` része olvassa ezeket:
+
+```php
+'update' => [
+    'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
+    'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
+    'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+],
+```
+
+Ez csak a konfiguráció megfelelő részlete; a meglévő útvonalakat, szabályokat és
+frissítési beállításokat tartsd meg. Ha a fájl még nem létezik, publikáld:
+`php artisan vendor:publish --tag=ip-analyzer-config`.
+Cache-elt konfigurációnál a módosítás után futtasd: `php artisan config:cache`.
+
+A MaxMind által kínált `GeoIP.conf` a különálló `geoipupdate` programhoz tartozik.
+Ez a csomag nem olvassa azt és nem igényli a program telepítését: az ottani
+`AccountID` és `LicenseKey` értékét kell átvezetni a fenti `.env` változókba.
+Nincs külön `EditionIDs` env/config beállítás: alapból Country és ASN frissül,
+vagy választhatsz a `--database=country` / `--database=asn` kapcsolókkal.
+A mintában szereplő **GeoLite2-City nem támogatott**.
 
 PHP cURL és zlib szükséges. A célkönyvtár a webgyökéren kívül legyen, az updater
 felhasználója írhassa; a letöltött fájlok 0600, a privát munkakönyvtárak 0700

@@ -167,21 +167,41 @@ Both configured sources are required for command availability.
 
 At the CLI boundary failures are sanitized to `{"error":"invalid_configuration_or_rule"}`
 and exit 2; exception details remain available to callers of the PHP services.
-A future-build flag alone does not change the exit code. Commands never download
+A future-build flag alone does not change the exit code. These read-only commands never download
 data or create directories/databases. `about` reads the installed Composer version,
 with a root-package/development fallback, and does not open MMDB files.
 
 ## Optional downloads and updates (2.0)
 
 Manual MMDB installation still works without credentials. For the built-in updater,
-create a MaxMind license key and configure your **Account ID and License Key**,
-not your account login password:
+obtain the following from your [MaxMind account](https://www.maxmind.com/en/account/sign-in):
+
+| MaxMind setting | Where to obtain it | Host application setting |
+| --- | --- | --- |
+| `AccountID` | Account Information ([instructions](https://support.maxmind.com/knowledge-base/articles/find-your-maxmind-account-id)) | `.env`: `IP_ANALYZER_MAXMIND_ACCOUNT_ID`; config: `ip-analyzer.update.account_id` |
+| `LicenseKey` | [License Keys](https://www.maxmind.com/en/accounts/current/license-key), create a key ([instructions](https://support.maxmind.com/knowledge-base/articles/generate-a-maxmind-license-key)) | `.env`: `IP_ANALYZER_MAXMIND_LICENSE_KEY`; config: `ip-analyzer.update.license_key` |
+| `EditionIDs` | [Download Databases](https://www.maxmind.com/en/accounts/current/geoip/downloads), available database editions and Get Permalink(s) | Fixed mapping: `country` → `GeoLite2-Country`, `asn` → `GeoLite2-ASN` |
+
+Use a License Key, not your account login password. Put the values in the
+**consuming Laravel application's `.env`**, not in the package/vendor directory:
 
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
 ```
+
+The host application's `config/ip-analyzer.php` maps these environment variables
+into the `update` section. Publish it with
+`php artisan vendor:publish --tag=ip-analyzer-config` if it does not exist; retain
+existing custom rules when upgrading. See the [config example](docs/UPDATING.md#host-application-configuration).
+
+MaxMind's `GeoIP.conf` is for the separate `geoipupdate` program. This package
+neither reads that file nor requires that program: copy the AccountID/LicenseKey
+values into the settings above. There is no `EditionIDs` environment variable;
+the updater supports Country and ASN, both selected by default or individually
+with `--database=country` / `--database=asn`. `GeoLite2-City` from a MaxMind sample
+is **not supported** by this package.
 
 ```sh
 php artisan ip-data:update --check --json
@@ -190,7 +210,7 @@ php artisan ip-data:update --database=country
 php artisan ip-data:update --force --json
 ```
 
-The first invocation downloads missing files. Later invocations use HEAD and
+The first normal update invocation downloads missing files. Later invocations use HEAD and
 the installed file/state to avoid unnecessary GETs. Candidates are bounded,
 extracted in private staging, validated using the MMDB reader, and renamed
 atomically per file. Older build epochs are rejected even with `--force`.
@@ -249,7 +269,7 @@ The tests are Pest functions, including the original provider tests, with the Pe
 Laravel plugin and Orchestra Testbench. Synthetic MMDB fixtures are committed;
 tests never download data. Their original generator, license and records are in
 [fixture documentation in the source repository](https://github.com/trianity/laravel-ip-analyzer/blob/master/tests/Fixtures/README.md). See
-[verification notes](docs/VERIFICATION.md) for RED/GREEN evidence and actual versions.
+[V2 verification notes](docs/VERIFICATION-V2.md) for RED/GREEN evidence and actual versions.
 
 The CI workflow covers PHP 8.4/8.5 with Laravel 12 (Testbench 10, Pest 4, PHPUnit 12)
 and Laravel 13 (Testbench 11, Pest 5, PHPUnit 13), performs Composer validation and PHP lint,

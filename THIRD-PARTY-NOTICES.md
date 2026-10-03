@@ -25,8 +25,9 @@ Downloaded GeoLite/GeoIP databases are separate data products subject to the
 applicable MaxMind terms, attribution and maintenance obligations:
 https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/
 
-No license key is needed by this package at runtime. Do not commit credentials
-or production MMDB data. An operational stale threshold does not replace the
+No license key is needed for local lookups. The optional updater requires an
+Account ID and License Key. Do not commit credentials or production MMDB data.
+An operational stale threshold does not replace the
 applicable data terms or guarantee freshness/accuracy.
 
 V2 declares the downloader's direct dependencies explicitly: guzzlehttp/guzzle,

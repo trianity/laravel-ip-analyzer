@@ -6,9 +6,24 @@ manual MMDB use and all 1.x public lookup/rule DTOs remain available without cre
 
 ## Account and source setup
 
-Create a license key in your MaxMind account and use it with the Account ID.
-Do not use the account login password. The account's Download Databases /
-Get Permalink(s) page provides the edition-specific source links.
+Sign in to your [MaxMind account](https://www.maxmind.com/en/account/sign-in).
+Find your Account ID in **Account Information** using the
+[official instructions](https://support.maxmind.com/knowledge-base/articles/find-your-maxmind-account-id).
+Create a License Key on the account's
+[License Keys page](https://www.maxmind.com/en/accounts/current/license-key)
+([creation instructions](https://support.maxmind.com/knowledge-base/articles/generate-a-maxmind-license-key)).
+Use that key, not the account login password. Available editions and their
+Get Permalink(s) links are on
+[Download Databases](https://www.maxmind.com/en/accounts/current/geoip/downloads).
+
+The account also offers a [GeoIP.conf template](https://www.maxmind.com/en/accounts/current/license-key/GeoIP.conf)
+for the separate `geoipupdate` program. Its `AccountID` and `LicenseKey` correspond
+to this package's `update.account_id` and `update.license_key`. This package does
+not read GeoIP.conf or execute geoipupdate; enter those values in the host
+application as shown below. `EditionIDs` is not a package configuration key:
+`country` always selects GeoLite2-Country and `asn` selects GeoLite2-ASN.
+Both are selected by default. GeoLite2-City, even if listed in your account or
+GeoIP.conf, is not supported by this package.
 
 The checked [MaxMind guide](https://dev.maxmind.com/geoip/updating-databases/)
 and [download specification](https://github.com/maxmind/openapi/blob/main/bundled/downloads.yaml)
@@ -22,13 +37,39 @@ Only these binary editions are supported. Sources may include an eight-digit
 `date` selector; credentials in a URL are rejected. CSV ZIPs, other source hosts
 and arbitrary query parameters are not accepted.
 
-Set placeholders in your deployment secret configuration:
+## Host application configuration
+
+Set the following in the **host Laravel application's `.env`** (or its deployment
+environment), replacing the placeholders. Do not place credentials in the package's
+own directory or edit files under `vendor/`:
 
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
 ```
+
+Publish the host configuration if it does not exist:
+
+```sh
+php artisan vendor:publish --tag=ip-analyzer-config
+```
+
+In the host application's `config/ip-analyzer.php`, the relevant section is:
+
+```php
+'update' => [
+    'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
+    'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
+    'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+],
+```
+
+This is a section of the returned config array, not a replacement for the whole
+file. Keep existing paths, rules and update overrides. Omitted updater options
+receive package defaults; the published V2 config includes those defaults too.
+The consuming application reads these settings as `ip-analyzer.update.*`.
+For a cached deployment, rebuild with `php artisan config:cache` after changes.
 
 No credentials are accepted as command options. Environment variables are read
 only by the config file. Laravel's normal configuration cache includes configured
@@ -114,7 +155,8 @@ Only the final successful GET's validators are associated with installed bytes,
 avoiding a HEAD/GET release race. Missing, corrupt or wrong-type local files force
 download regardless of state. Source changes invalidate the previous identity.
 Downloaded candidates older than the valid local build are rejected, including
-force runs. Identical content avoids rename but can update verification metadata.
+force runs, also when the existing Country file is a manually installed
+GeoIP2-Country database. Identical content avoids rename but can update verification metadata.
 
 The local SHA-256 is a change fingerprint, **not source authentication**.
 This version does not fetch vendor checksum files.

@@ -332,7 +332,9 @@ it('cleans only aged owned staging while holding the target lock', function () {
         $stage = $storage->stage($target, app(UpdateOptions::class));
         expect(is_dir($aged))->toBeFalse()->and(is_file($orphan))->toBeFalse()->and(is_dir($recent))->toBeTrue();
         $storage->cleanup($stage);
-    } finally { $storage->unlock($lock); }
+    } finally {
+        $storage->unlock($lock);
+    }
 });
 
 it('preserves existing bytes and sanitized CLI output after an interrupted download', function () {

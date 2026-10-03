@@ -57,7 +57,7 @@ final class DatabaseUpdater
             }
             if (is_file($target)) {
                 try {
-                    $old = $this->validator->validate($source, $target, $this->options);
+                    $old = $this->validator->validate($source, $target, $this->options, requireEdition: false);
                 } catch (UpdateFailure) { /* Invalid local files must be repaired, not skipped. */
                 }
             }
