@@ -10,5 +10,7 @@ final readonly class DatabaseMetadata
         public string $databaseType,
         public int $buildEpoch,
         public bool $stale,
+        public float $ageDays = 0,
+        public bool $futureBuild = false,
     ) {}
 }

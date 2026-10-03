@@ -1,0 +1,8 @@
+parameters:
+    level: 6
+    paths:
+        - src
+    # Keep runtime validation at container/Composer boundaries even where vendor
+    # PHPDoc promises a specific type; user bindings and development metadata vary.
+    treatPhpDocTypesAsCertain: false
+    tmpDir: .phpstan.cache

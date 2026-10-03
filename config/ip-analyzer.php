@@ -10,7 +10,6 @@ return [
     // Compare with MMDB build_epoch, not file modification time.
     // This is an operational warning threshold, not a licensing guarantee.
     'max_age_days' => 30,
-    // These proposed options are implemented by the TDD tasks, not this skeleton.
     'rules' => [
         'ip_cidr' => [],
         'asn' => [],

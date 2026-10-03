@@ -1,0 +1,38 @@
+name: Tests
+on:
+  push:
+  pull_request:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+        laravel: ['12', '13']
+        include:
+          - laravel: '12'
+            testbench: '10'
+            pest: '4'
+          - laravel: '13'
+            testbench: '11'
+            pest: '5'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, xml, dom, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+      - run: composer validate --strict
+      - name: Select dependency matrix
+        run: |
+          composer require --no-update "illuminate/support:^${{ matrix.laravel }}.0" "illuminate/console:^${{ matrix.laravel }}.0"
+          composer require --dev --no-update "orchestra/testbench:^${{ matrix.testbench }}.0" "pestphp/pest:^${{ matrix.pest }}.0" "pestphp/pest-plugin-laravel:^${{ matrix.pest }}.0"
+          composer update --prefer-dist --no-interaction --with-all-dependencies
+          composer validate --strict
+      - name: PHP lint
+        run: find src config tests examples -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Offline Pest suite
+        run: php -d allow_url_fopen=0 -d disable_functions=curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,gethostbyname,gethostbynamel,gethostbyaddr,dns_get_record vendor/bin/pest

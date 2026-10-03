@@ -7,3 +7,11 @@
 *.zip
 /storage/
 /.idea
+!/tests/Fixtures/country.mmdb
+!/tests/Fixtures/country-next.mmdb
+!/tests/Fixtures/registered-only.mmdb
+!/tests/Fixtures/asn.mmdb
+!/tests/Fixtures/wrong-type.mmdb
+/docs/CODEX-TDD-PROMPT.md
+/.phpstan.cache/
+/.pest/
