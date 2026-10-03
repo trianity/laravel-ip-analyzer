@@ -3,8 +3,10 @@
 A V1 csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad.
 Nincs automatikus tiltás, regisztrációs döntés, letöltés vagy telemetria.
 
-1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett vedd fel a csomagot
-   Composer path repositoryként; a [README](../README.md) mutatja a helyi telepítést.
+1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 1.x kiadás
+   telepítése: `composer require trianity/laravel-ip-analyzer:^1.0`.
+   Amíg a kiadás nem érhető el Composerből, használd a
+   [README helyi fejlesztői telepítését](../README.md#local-development-installation).
 2. Publikáld a konfigurációt:
    `php artisan vendor:publish --tag=ip-analyzer-config`.
 3. Szerezd be külön, a vonatkozó feltételekkel a MaxMind Country és ASN fájlokat.

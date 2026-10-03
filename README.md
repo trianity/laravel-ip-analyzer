@@ -1,31 +1,27 @@
 # Laravel IP Analyzer
 
+Documentation for **1.0.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
 files; lookups and diagnostics perform no HTTP, DNS, downloads or telemetry.
 
-This repository implements V1 and has not been published as a release. It does not
-make signup decisions, block requests, assign a global risk score or ship an
-application blacklist. Country/ASN data is not bot evidence; an empty match list
-does not certify safety.
+The package does not make signup decisions, block requests, assign a global risk
+score or ship an application blacklist. Country/ASN data is not bot evidence; an
+empty match list does not certify safety.
 
 ## Installation and use
 
-For local development, add this directory as a Composer path repository in your
-Laravel application, then require the development branch:
-
-```json
-{
-    "repositories": [
-        {"type": "path", "url": "../packages/laravel-ip-analyzer"}
-    ]
-}
-```
+Requirements: PHP 8.4 or 8.5 and Laravel 12 or 13. For a published 1.x release:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:@dev
+composer require trianity/laravel-ip-analyzer:^1.0
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
+
+The stable install command requires the release to be available in your Composer
+repository. To work with an unreleased checkout, use the
+[local development installation](#local-development-installation).
 
 The provider is autodiscovered. Configure local files outside the public web root:
 
@@ -198,6 +194,9 @@ operation see the replacement. Automated downloads/replacement are a V2 topic.
 
 ## Development and compatibility
 
+Run development checks from a Git source checkout. Distribution archives exclude
+the tests, fixtures and development configuration.
+
 ```sh
 composer install
 composer validate --strict
@@ -209,15 +208,38 @@ vendor/bin/phpstan analyse
 The tests are Pest functions, including the original provider tests, with the Pest
 Laravel plugin and Orchestra Testbench. Synthetic MMDB fixtures are committed;
 tests never download data. Their original generator, license and records are in
-[fixture documentation](tests/Fixtures/README.md). See
+[fixture documentation in the source repository](https://github.com/trianity/laravel-ip-analyzer/blob/master/tests/Fixtures/README.md). See
 [verification notes](docs/VERIFICATION.md) for RED/GREEN evidence and actual versions.
 
-CI tests PHP 8.4/8.5 with Laravel 12 (Testbench 10, Pest 4, PHPUnit 12) and Laravel
-13 (Testbench 11, Pest 5, PHPUnit 13), performs Composer validation and PHP lint,
+The CI workflow covers PHP 8.4/8.5 with Laravel 12 (Testbench 10, Pest 4, PHPUnit 12)
+and Laravel 13 (Testbench 11, Pest 5, PHPUnit 13), performs Composer validation and PHP lint,
 then runs Pest with networking entry points disabled. PHP 8.3 is deliberately
 outside this package's existing `^8.4` requirement and Pest 4/5 test baseline,
 even though [Laravel 13 itself supports PHP 8.3](https://laravel.com/docs/13.x/releases).
 No Laravel/PHP version outside the tested matrix is claimed here.
+
+### Local development installation
+
+Add the local directory as a path repository in the consuming Laravel application:
+
+```json
+{
+    "repositories": [
+        {"type": "path", "url": "../packages/laravel-ip-analyzer"}
+    ]
+}
+```
+
+Then install the checkout and publish its configuration:
+
+```sh
+composer require trianity/laravel-ip-analyzer:@dev
+php artisan vendor:publish --tag=ip-analyzer-config
+```
+
+Package versions come from Git tags; `composer.json` deliberately has no
+`version` field. See [1.0.0 verification](docs/RELEASE-1.0.0.md) for the local
+release checks and the publication steps still outstanding.
 
 ## Licenses and limits
 
