@@ -1,0 +1,7 @@
+/tests export-ignore
+/examples export-ignore
+/docs export-ignore
+/AGENTS.md export-ignore
+/phpunit.xml export-ignore
+/.github export-ignore
+*.mmdb export-ignore
