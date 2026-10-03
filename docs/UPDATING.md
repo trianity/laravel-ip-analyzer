@@ -251,6 +251,9 @@ exactly one JSON document without progress or a timing field; `--json --progress
 sends all phase messages and the timing summary exclusively to STDERR.
 `--quiet` overrides explicit progress, and `--no-progress` overrides `--progress`.
 Non-TTY progress uses throttled separate lines without ANSI cursor controls.
+Since 2.1.1, human labels use the current Laravel locale (`en`/`hu`) with explicit
+English fallback. See [localization and overrides](../README.md#language-and-application-overrides-211).
+JSON, including existing message fields, remains locale-independent.
 See [progress, ETA and interruption behavior](../README.md#update-progress-21).
  Per-target fields include database, status, oldBuildEpoch,
 newBuildEpoch, errorCode, warning, nextRetryAt (Unix seconds), and installed.

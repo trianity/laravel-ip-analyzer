@@ -12,8 +12,6 @@ final class LookupCommand extends DataCommand
 {
     protected $signature = 'ip-data:lookup {ip} {--json}';
 
-    protected $description = 'Read local IP facts and evaluate observation rules';
-
     public function handle(): int
     {
         // CLI boundary only: the PHP services propagate programming and custom-rule errors.

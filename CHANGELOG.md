@@ -4,6 +4,27 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.1.1] - Unreleased
+
+### Added
+
+- Complete English/Hungarian package translations for human progress, summaries,
+  status labels, sanitized errors/warnings and command descriptions.
+- Per-key current-locale resolution with explicit English fallback, independent
+  of application fallback settings, including runtime locale changes and plurals.
+- Optional `ip-analyzer-translations` publication and standard Laravel partial
+  application overrides, also respected for English fallback.
+- Offline localization, publication, config-cache and output-compatibility tests.
+
+### Changed
+
+- Human presentation reads language catalogs; internal progress phase identifiers
+  contain machine keys rather than translated labels.
+- Explicitly declare the existing Laravel translation component as a direct
+  dependency. No installed dependency version or required PHP extension changed.
+- JSON keys, codes, types, numeric values and existing message contents remain
+  locale-independent. Custom rule messages, validation, updates and ETA unchanged.
+
 ## [2.1.0] - 2026-10-04
 
 ### Added

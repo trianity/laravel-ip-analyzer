@@ -4,22 +4,23 @@ declare(strict_types=1);
 
 namespace Trianity\IpAnalyzer\Update\Progress;
 
+/** @internal Machine phase identifiers; human labels belong to the Console layer. */
 enum Phase: string
 {
-    case Configuration = 'Konfiguráció és helyi állapot';
-    case Lock = 'Lock várakozás';
-    case LocalValidation = 'Helyi MMDB integritásvizsgálata';
-    case Hash = 'SHA-256 számítása';
-    case Head = 'Távoli kiadás ellenőrzése (HEAD)';
-    case Download = 'Letöltés';
-    case Extract = 'Kicsomagolás';
-    case CandidateValidation = 'Letöltött MMDB validálása';
-    case Install = 'Telepítés és state mentése';
-    case Retry = 'Újrapróbálkozás előtti várakozás';
-    case Done = 'Kész';
-    case Unchanged = 'Változatlan';
-    case Available = 'Ellenőrzés kész, letöltés szükséges';
-    case Failed = 'Hiba';
-    case Busy = 'Foglalt';
-    case Interrupted = 'Megszakítva';
+    case Configuration = 'configuration';
+    case Lock = 'lock';
+    case LocalValidation = 'local_validation';
+    case Hash = 'hash';
+    case Head = 'head';
+    case Download = 'download';
+    case Extract = 'extract';
+    case CandidateValidation = 'candidate_validation';
+    case Install = 'install';
+    case Retry = 'retry';
+    case Done = 'done';
+    case Unchanged = 'unchanged';
+    case Available = 'available';
+    case Failed = 'failed';
+    case Busy = 'busy';
+    case Interrupted = 'interrupted';
 }

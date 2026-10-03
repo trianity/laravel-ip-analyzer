@@ -6,6 +6,7 @@ namespace Trianity\IpAnalyzer\Console;
 
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Output\StreamOutput;
+use Trianity\IpAnalyzer\Support\Messages;
 use Trianity\IpAnalyzer\Update\Progress\Database;
 use Trianity\IpAnalyzer\Update\Progress\Observer;
 use Trianity\IpAnalyzer\Update\Progress\Phase;
@@ -23,10 +24,13 @@ final class UpdateProgress implements Observer
 
     private float $last = 0;
 
-    public function __construct(private readonly OutputInterface $output)
+    private readonly Messages $messages;
+
+    public function __construct(private readonly OutputInterface $output, ?Messages $messages = null)
     {
+        $this->messages = $messages ?? app(Messages::class);
         $this->tty = $output instanceof StreamOutput && stream_isatty($output->getStream()) && $output->isDecorated();
-        $output->writeln('A helyi adatbázis teljes integritásvizsgálata több percig tarthat.', OutputInterface::OUTPUT_RAW);
+        $output->writeln($this->messages->get('progress.start'), OutputInterface::OUTPUT_RAW);
     }
 
     public function report(Snapshot $snapshot): void
@@ -42,22 +46,27 @@ final class UpdateProgress implements Observer
         $this->phase = $snapshot->phase;
         $this->database = $snapshot->database;
         $this->last = $snapshot->elapsed;
-        $name = match ($snapshot->database) {
-            Database::Country => 'Country', Database::Asn => 'ASN', null => 'Update'
-        };
-        $text = $name.' | '.$snapshot->phase->value;
+        $name = $this->messages->get('databases.'.($snapshot->database->value ?? 'update'));
+        $parts = [$this->messages->get('progress.phase', [
+            'database' => $name, 'phase' => $this->messages->get('phases.'.$snapshot->phase->value),
+        ])];
         if (in_array($snapshot->phase, [Phase::Hash, Phase::Download, Phase::Extract, Phase::LocalValidation, Phase::CandidateValidation], true)) {
-            $unit = in_array($snapshot->phase, [Phase::LocalValidation, Phase::CandidateValidation], true) ? 'tartomány' : 'bájt';
-            $text .= ' | '.$snapshot->completed.' '.$unit;
+            $unit = in_array($snapshot->phase, [Phase::LocalValidation, Phase::CandidateValidation], true) ? 'ranges' : 'bytes';
+            $amount = $this->messages->choice('progress.'.$unit, $snapshot->completed);
             if ($snapshot->total !== null && $snapshot->total > 0) {
-                $text .= sprintf(' / %d (%.1f%%)', $snapshot->total, min(100, 100 * $snapshot->completed / $snapshot->total));
+                $amount .= ' '.$this->messages->get('progress.total', [
+                    'count' => $snapshot->total, 'percent' => sprintf('%.1f', min(100, 100 * $snapshot->completed / $snapshot->total)),
+                ]);
             }
+            $parts[] = $amount;
         }
-        $text .= sprintf(' | Eltelt: %.1f s', $snapshot->elapsed);
-        $text .= $snapshot->eta === null ? ' | Hátralévő idő: még nem becsülhető' : sprintf(' | Fázis hátralévő ideje: %.1f s', $snapshot->eta);
+        $parts[] = $this->messages->get('progress.elapsed', ['elapsed' => sprintf('%.1f', $snapshot->elapsed)]);
+        $parts[] = $snapshot->eta === null ? $this->messages->get('progress.unknown_eta')
+            : $this->messages->get('progress.eta', ['remaining' => sprintf('%.1f', $snapshot->eta)]);
         if ($snapshot->waitSeconds !== null) {
-            $text .= ' | Várakozás/timeout: '.$snapshot->waitSeconds.' s';
+            $parts[] = $this->messages->get('progress.wait', ['seconds' => $snapshot->waitSeconds]);
         }
+        $text = implode(' | ', $parts);
         if ($this->tty) {
             $this->output->write("\r\033[2K".$text, false, OutputInterface::OUTPUT_RAW);
             $this->line = true;
@@ -69,16 +78,18 @@ final class UpdateProgress implements Observer
     public function finish(int $exit, float $elapsed): void
     {
         $this->endLine();
-        $this->output->writeln(self::summary($exit, $elapsed), OutputInterface::OUTPUT_RAW);
+        $this->output->writeln(self::summary($exit, $elapsed, $this->messages), OutputInterface::OUTPUT_RAW);
     }
 
-    public static function summary(int $exit, float $elapsed): string
+    public static function summary(int $exit, float $elapsed, ?Messages $messages = null): string
     {
         $label = match ($exit) {
-            0 => 'Kész', 130 => 'Megszakítva', 3 => 'Foglalt', default => 'Hiba'
+            0 => 'done', 130 => 'interrupted', 3 => 'busy', default => 'failed'
         };
 
-        return sprintf('%s | Teljes futási idő: %.1f s', $label, max(0, $elapsed));
+        $messages ??= app(Messages::class);
+
+        return $messages->get('progress.summary', ['status' => $messages->get('phases.'.$label), 'elapsed' => sprintf('%.1f', max(0, $elapsed))]);
     }
 
     public function endLine(): void

@@ -121,6 +121,7 @@ it('cancels validation before opening the database and stops record traversal', 
 });
 
 it('renders final unknown-size counts even for a short non-TTY phase', function () {
+    app()->setLocale('hu');
     $output = new BufferedOutput;
     $reporter = new UpdateProgress($output);
     [$p, $clock, $o] = progressHarness();

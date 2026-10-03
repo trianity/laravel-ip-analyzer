@@ -12,8 +12,6 @@ final class StatusCommand extends DataCommand
 {
     protected $signature = 'ip-data:status {--json}';
 
-    protected $description = 'Inspect local database metadata without querying an IP';
-
     public function handle(): int
     {
         try {

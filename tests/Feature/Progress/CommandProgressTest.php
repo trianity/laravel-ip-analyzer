@@ -1,43 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
-use Symfony\Component\Console\Output\ConsoleOutput;
-use Symfony\Component\Console\Output\StreamOutput;
 use Trianity\IpAnalyzer\Update\Progress\Progress;
 use Trianity\IpAnalyzer\Update\RemoteResponse;
 use Trianity\IpAnalyzer\Update\Transport;
 
-function separatedProgressOutput(): array
-{
-    $out = fopen('php://memory', 'w+');
-    $err = fopen('php://memory', 'w+');
-    $output = new class($out, $err) extends ConsoleOutput
-    {
-        public function __construct($out, $err)
-        {
-            parent::__construct(decorated: false);
-            $this->stdout = $out;
-            $this->setErrorOutput(new StreamOutput($err, decorated: false));
-        }
-
-        private $stdout;
-
-        protected function doWrite(string $message, bool $newline): void
-        {
-            fwrite($this->stdout, $message.($newline ? PHP_EOL : ''));
-        }
-    };
-
-    return [$output, $out, $err];
-}
-function progressText($stream): string
-{
-    rewind($stream);
-
-    return stream_get_contents($stream);
-}
-
 beforeEach(function () {
+    app()->setLocale('hu');
     config(['ip-analyzer.update.account_id' => '1234', 'ip-analyzer.update.license_key' => 'SYNTHETIC-SECRET']);
 });
 
@@ -52,7 +21,7 @@ it('announces both databases and safe check phases without download or install',
     app()->instance(Transport::class, $transport);
     expect(Artisan::call('ip-data:update', ['--check' => true, '--progress' => true], $output))->toBe(0);
     $text = progressText($out);
-    expect($text)->toContain('Country', 'ASN', 'Teljes futási idő')->not->toContain('Kicsomagolás', 'Telepítés', 'SYNTHETIC-SECRET', "\033", "\r");
+    expect($text)->toContain('Ország', 'ASN', 'Teljes futási idő')->not->toContain('Kicsomagolás', 'Telepítés', 'SYNTHETIC-SECRET', "\033", "\r");
     fclose($out);
     fclose($err);
 });
@@ -65,7 +34,7 @@ it('keeps JSON stdout clean and routes explicit progress only to stderr', functi
     expect(Artisan::call('ip-data:update', ['--check' => true, '--json' => true, '--progress' => $progress], $output))->toBe(0);
     expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'])->toHaveCount(2);
     if ($progress) {
-        expect(progressText($err))->toContain('Country', 'ASN', 'Teljes futási idő');
+        expect(progressText($err))->toContain('Ország', 'ASN', 'Teljes futási idő');
     } else {
         expect(progressText($err))->toBe('');
     }
@@ -149,7 +118,7 @@ it('shows default non-TTY human phase lines and the total duration even with pro
     if ($disabled) {
         expect($text)->not->toContain('több percig tarthat', 'HEAD');
     } else {
-        expect($text)->toContain('több percig tarthat', 'Country', 'ASN', 'HEAD');
+        expect($text)->toContain('több percig tarthat', 'Ország', 'ASN', 'HEAD');
     }
     fclose($out);
     fclose($err);

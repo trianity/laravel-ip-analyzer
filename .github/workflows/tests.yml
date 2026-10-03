@@ -37,6 +37,6 @@ jobs:
           composer update --prefer-dist --no-interaction --with-all-dependencies
           composer validate --strict
       - name: PHP lint
-        run: find src config tests examples -name '*.php' -print0 | xargs -0 -n1 php -l
+        run: find src config tests examples lang -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Offline Pest suite
         run: php -d allow_url_fopen=0 -d disable_functions=curl_exec,curl_multi_exec,fsockopen,pfsockopen,stream_socket_client,gethostbyname,gethostbynamel,gethostbyaddr,dns_get_record vendor/bin/pest

@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.1.0** · Released **2026-10-04** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.1.1** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -153,8 +153,8 @@ php artisan ip-data:status --json
 php artisan about
 ```
 
-Human output is indented JSON; `--json` emits one compact parseable document without
-decoration. Lookup includes facts, source states/metadata/errors and matches.
+Human output includes localized status/error labels and an indented structured
+result; `--json` emits one compact parseable document without decoration. Lookup includes facts, source states/metadata/errors and matches.
 Status reports each source's readability/structural metadata status, without
 opening records or making a geographic probe. Found in status means metadata was
 read successfully; it is not an exhaustive integrity scan of every record.
@@ -269,6 +269,57 @@ reconcile an interrupted command; its JSON error does not claim overall success.
 No cleanup guarantee is made for SIGKILL. PCNTL is not a package requirement.
 
 See [2.1 verification](docs/VERIFICATION-2.1.md) for tests and platform limits.
+
+## Language and application overrides (2.1.1)
+
+Package-owned human output supports **English (`en`) and Hungarian (`hu`)**.
+Every rendering uses the application's current Laravel translator locale, including
+locale changes within the same application instance. The package never changes
+`app.locale`, `app.fallback_locale` or the translator's settings.
+
+Resolution is per key: current locale (including application overrides), then
+explicit **English** (including English application overrides). The host fallback
+locale is not used for package messages. There is no regional-locale mapping:
+`hu_HU` and `en_GB` fall back to English unless the application supplies those
+exact locale's package translations.
+
+Translations work immediately, without publishing. Optional publication:
+
+```sh
+php artisan vendor:publish --tag=ip-analyzer-translations
+```
+
+The destination is the host application's `lang_path('vendor/ip-analyzer')`.
+For a partial Hungarian override, create
+`lang/vendor/ip-analyzer/hu/messages.php` (under your configured language path):
+
+```php
+<?php
+
+return [
+    'progress' => [
+        'start' => 'Az adatbázisok ellenőrzése elindult; ez több percig tarthat.',
+    ],
+];
+```
+
+Omitted keys retain package translations. An equivalent `en/messages.php` override
+also applies when English is selected as fallback. Preserve the placeholders of
+the overridden key; for example `progress.elapsed` uses `:elapsed` and
+`progress.summary` uses `:status` and `:elapsed`. Counted range/byte messages use
+Laravel pluralization. Keep overrides in the host application, not in `vendor/`.
+
+Progress, summaries, status labels, sanitized errors/warnings and package command
+descriptions are localized. Human results include localized source labels followed
+by the structured result; machine codes and custom rule messages remain intact.
+Framework-owned help text is left to Laravel/Symfony. There are no package tables
+or table headers to translate.
+
+`--json` output is locale-independent, including existing `message` fields.
+With `--json --progress`, only STDERR human progress is localized; STDOUT remains
+one unchanged JSON document. Quiet, no-progress, timing, validation, installation
+and cancellation behavior are unchanged. See the
+[2.1.1 verification record](docs/VERIFICATION-2.1.1.md) for test results.
 
 ## Manual data maintenance
 

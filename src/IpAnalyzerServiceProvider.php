@@ -31,12 +31,14 @@ final class IpAnalyzerServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->loadTranslationsFrom(__DIR__.'/../lang', 'ip-analyzer');
         if ($this->app->runningInConsole()) {
             $this->commands([LookupCommand::class, StatusCommand::class, UpdateCommand::class]);
             AboutCommand::add('IP Analyzer', fn () => ['Version' => PackageVersion::get()]);
             $this->publishes([
                 __DIR__.'/../config/ip-analyzer.php' => config_path('ip-analyzer.php'),
             ], 'ip-analyzer-config');
+            $this->publishes([__DIR__.'/../lang' => lang_path('vendor/ip-analyzer')], 'ip-analyzer-translations');
         }
     }
 }

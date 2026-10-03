@@ -36,7 +36,7 @@ it('renders a successful check in human and JSON modes', function ($json) {
         $result = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
         expect($result['results'][0]['status'])->toBe('update_available')->and($result['partialFailure'])->toBeFalse();
     } else {
-        expect(Artisan::output())->toContain('update_available', 'Teljes futási idő');
+        expect(Artisan::output())->toContain('update_available', 'Total duration');
     }
 })->with([true, false]);
 

@@ -157,3 +157,46 @@ Az updater állapota, lockja, notice-ai és stagingje a cél mellett, egy
 után a jelölt már lehet telepítve: az eredmény ezt külön jelzi, a következő
 futtatás újraellenőriz. Ne töröld a lockfájlt aktív frissítés közben.
 A részletes limitek, források, helyreállítás és korlátok: [UPDATING.md](UPDATING.md).
+
+## Angol és magyar lokalizáció (2.1.1)
+
+A csomag saját human szövegei az alkalmazás aktuális Laravel locale-ját követik:
+`en` esetén angolul, `hu` esetén magyarul jelennek meg. Futás közbeni locale-váltás
+után a következő megjelenítés az új nyelvet használja. A csomag nem módosítja az
+alkalmazás locale- vagy fallback-beállításait.
+
+A feloldás kulcsonként az aktuális nyelvben kezdődik, az alkalmazás felülírásait is
+figyelembe véve. Hiányzó kulcs vagy nem támogatott locale esetén mindig **angol**
+a fallback, akkor is, ha az alkalmazás fallback_locale értéke `hu` vagy `de`.
+Nincs automatikus `hu_HU` → `hu` megfeleltetés. Az adott regionális locale-hoz
+az alkalmazás saját fordítást adhat; hiányzó kulcsai angolra esnek vissza.
+
+Publikálás nélkül is működik. Opcionális parancs:
+
+```sh
+php artisan vendor:publish --tag=ip-analyzer-translations
+```
+
+A cél a host alkalmazás `lang_path('vendor/ip-analyzer')` könyvtára.
+Részleges felülírás példája a `lang/vendor/ip-analyzer/hu/messages.php` fájlban
+(a ténylegesen beállított Laravel nyelvi könyvtár alatt):
+
+```php
+<?php
+
+return [
+    'progress' => [
+        'start' => 'Az adatbázisok ellenőrzése elindult; ez több percig tarthat.',
+    ],
+];
+```
+
+A többi kulcs csomagfordítása megmarad. Az `en/messages.php` alkalmazásfelülírása
+az angol fallback esetén is érvényesül. A helyőrzőket tartsd meg: például
+`progress.elapsed` esetén `:elapsed`; `progress.summary` esetén `:status` és
+`:elapsed`. A számlálók Laravel-pluralizációt használnak.
+
+A human státuszfeliratok, hibák és figyelmeztetések lokalizáltak. A gépi kódok és
+a saját szabályaid szabad szöveges üzenetei nem változnak. A `--json` kimenet teljes
+egészében locale-független, a meglévő `message` mezőkkel együtt. `--json --progress`
+esetén kizárólag a STDERR-re kerülő human folyamatjelzés lokalizált.

@@ -21,8 +21,6 @@ final class UpdateCommand extends DataCommand
 {
     protected $signature = 'ip-data:update {--database=*} {--force} {--check} {--json} {--progress} {--no-progress}';
 
-    protected $description = 'Explicitly download and atomically update local MaxMind databases';
-
     public function handle(): int
     {
         $progress = $this->laravel->make(Progress::class);
