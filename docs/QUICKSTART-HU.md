@@ -1,11 +1,12 @@
 # Magyar quickstart
 
-A V2 csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad.
-Nincs automatikus tiltás, regisztrációs döntés vagy telemetria. Hálózati letöltést
-csak a kifejezetten indított frissítés végez.
+A 2.3-as csomag helyi Country/ASN adatokat és megfigyelési szabálytalálatokat ad.
+Nincs automatikus tiltás, regisztrációs döntés vagy telemetria. A lookup, status,
+verify és about nem használ hálózatot; a kifejezetten indított `ip-data:update`,
+a read-only `--check` módot is beleértve, HTTPS-kérést végezhet.
 
-1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a publikált 2.1-es kiadás
-   telepítése: `composer require trianity/laravel-ip-analyzer:^2.1`.
+1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a 2.3-as kiadás
+   telepítése: `composer require trianity/laravel-ip-analyzer:^2.3`.
    Helyi forráskódból történő fejlesztéshez használd a
    [README helyi fejlesztői telepítését](../README.md#local-development-installation).
 2. Publikáld a konfigurációt:
@@ -14,8 +15,9 @@ csak a kifejezetten indított frissítés végez.
    Tedd a publikus webgyökéren kívülre, a PHP-folyamat számára olvasható helyre.
 4. Állítsd be az `IP_ANALYZER_COUNTRY_DB` és `IP_ANALYZER_ASN_DB` útvonalakat.
    Ha konfigurációs cache-t használsz, építsd újra.
-5. Ellenőrzés: `php artisan ip-data:status --json`.
-6. Lekérdezés: `php artisan ip-data:lookup 8.8.8.8 --json`.
+5. Metaadat-ellenőrzés: `php artisan ip-data:status --json`.
+6. Teljes offline integritásvizsgálat: `php artisan ip-data:verify --json`.
+7. Lekérdezés: `php artisan ip-data:lookup 8.8.8.8 --json`.
 
 ```php
 $result = app(\Trianity\IpAnalyzer\Contracts\IpAnalyzer::class)
@@ -34,15 +36,24 @@ Minden elem: `id`, `value`, `reason_code`, `severity`, `message`.
 Severity: info, warning vagy high. Saját Rule osztályok neve a `custom_rules`
 listába kerül; a container támogatja a konstruktoros függőséginjektálást.
 
-Kilépési kódok: 0 használható vizsgálat; 1 elérhetetlen adatforrás (status esetén
-elavult adat is); 2 hibás input/config vagy saját szabályhiba. A találat nem
-parancshiba. A lookup elavult adatot is visszaad, `stale=true` jelzéssel.
+A lookup/status kilépési kódjai: 0 használható vizsgálat; 1 elérhetetlen adatforrás
+(status esetén elavult adat is); 2 hibás input/config vagy saját szabályhiba. A
+találat nem parancshiba. A lookup elavult adatot is visszaad, `stale=true` jelzéssel.
+A verify kódjai: 0 minden kiválasztott adatbázis igazolt; 1 hiba vagy sikerrel vegyes
+foglalt eredmény; 2 hibás kiválasztás/config; 3 kizárólag foglalt műveletek; 130
+ellenőrzött Ctrl-C megszakítás.
 
-Frissítéskor az új fájlokat privát staging helyen ellenőrizd: eredet/checksum,
-pontos adatbázistípus, build-idő, olvashatóság, szükség esetén ismert rekordok.
+Kézi frissítéskor az új fájlokat privát staging helyen ellenőrizd:
+eredet/checksum, támogatott adatbázistípus, build-idő és olvashatóság. Az izolált
+folyamat konfigurációját a staging fájlokra állítva futtasd az `ip-data:status
+--json`, majd a teljes bejáráshoz és SHA-256-számításhoz az `ip-data:verify
+--json` parancsot.
 Az azonos fájlrendszeren validált fájlt atomikus rename-nel cseréld, ne írd felül
 helyben a használatban lévő fájlt. A következő lookup az új fájlt olvassa.
-A két külön adatbázis cseréje nem közös tranzakció. A V2 frissítőparancsa ugyanezt a fájlonként atomikus cserét végzi.
+A két külön adatbázis cseréje nem közös tranzakció. A beépített updater
+automatizálja a korlátozott letöltést, kicsomagolást, teljes jelöltvalidálást
+és a fájlonként atomikus cserét, de nem tölt le vendor-checksumot és nem
+hitelesíti a forrást.
 
 A saját kód MIT; a letöltött adatbázis és a függőségek licence külön kezelendő.
 A stale-küszöb nem licencgarancia. Részletek és pontos IP-kategóriák a README-ben.
@@ -61,7 +72,11 @@ Az adatokat innen szerezheted be:
   ez nem a fiók belépési jelszava.
 - **EditionIDs:** az elérhető adatbázisokat és a Get Permalink(s) hivatkozásokat a
   [Download Databases oldalon](https://www.maxmind.com/en/accounts/current/geoip/downloads)
-  találod. A csomag a `GeoLite2-Country` és `GeoLite2-ASN` kiadásokat támogatja.
+  találod. A beépített updater a `GeoLite2-Country` és `GeoLite2-ASN` kiadásokat
+  kezeli. A kézzel telepített `GeoIP2-Country` lookup/status/verify célra elfogadott,
+  de nem kompatibilis a GeoLite2 updater freshness state-jével: check esetén
+  `freshness_unknown`, normál update-nél pedig validált GeoLite2 cserét kísérel meg.
+  A meglévő GeoIP2 build epoch továbbra is részt vesz a downgrade-védelemben.
 
 Az értékeket a **csomagot használó Laravel host alkalmazás `.env` fájljában**
 (vagy a telepítési környezet változóiban) add meg, ne a csomag vagy a `vendor`
@@ -111,20 +126,25 @@ ugyanúgy védd, mint az alkalmazás többi titkos konfigurációját.
 
 ```sh
 php artisan ip-data:update --check --json
-php artisan ip-data:update --check --workers=2
-php artisan ip-data:update
+php artisan ip-data:verify --workers=2
+php artisan ip-data:update --workers=2
 php artisan ip-data:update --database=asn --json
 ```
 
 A human mód alapból jelzi a munkafázist, az aktuális Country/ASN adatbázist és az
-eltelt időt. A teljes helyi integritásvizsgálat `--check` mellett is több percig
-tarthat. A validálás a ténylegesen feldolgozott CIDR-tartományok számát mutatja.
+eltelt időt. A `--check` 2.3-tól csak helyi metaadatot, state-et és távoli HEAD-et
+ellenőriz; nem járja be és nem hash-eli végig az MMDB-t. A teljes helyi
+integritásvizsgálathoz az `ip-data:verify` parancsot használd. A validálás a
+ténylegesen feldolgozott CIDR-tartományok számát mutatja.
 Valós adatbázisok igazolták, hogy a metaadat `nodeCount + 1` értéke nem az SDK
 bejárási iterációinak teljes száma, ezért a 2.2.1 eltávolítja ezt a hibás nevezőt.
 A validálás határozatlan progress: százalék és ETA nélkül jelenik meg, és nem fut
 miatta második teljes bejárás. A hash és az ismert méretű letöltés továbbra is
 bájttal, százalékkal és elegendő minta után simított ETA-val dolgozik. Az eltelt idő
-egész másodperces, az ETA közelítő másodperc vagy perc; a JSON-kimenet változatlan.
+egész másodperces, az ETA közelítő másodperc vagy perc. A 2.2.1-es
+megjelenítési változás nem módosította a numerikus progress snapshotokat; a 2.3
+viszont dokumentált freshness-, lokális health- és integritásmezőkkel bővíti az
+eredményt, a verify pedig külön eredménysémát ad.
 
 - `--no-progress`: csak a végső human eredmény és teljes futási idő.
 - `--json`: egyetlen végső JSON a STDOUT-on, folyamatjelzés nélkül.
@@ -145,13 +165,15 @@ várhat; a megkezdett atomikus telepítés és state-mentés befejeződik. A kor
 telepített adatbázist nem vonja vissza. Megszakítás után ellenőrizd a státuszt;
 SIGKILL-re nincs takarítási garancia. Új kötelező PHP-extension nem szükséges.
 
-A 2.2-es verzióban a Country és ASN teljes helyi ellenőrzése külön PHP-folyamatban,
-párhuzamosan is futhat. Alapból egy worker van, ezért a korábbi szekvenciális,
+A Country és ASN teljes helyi ellenőrzése, illetve két előkészített frissítési jelölt
+külön PHP-folyamatban, párhuzamosan is futhat. Alapból egy worker van, ezért a
+szekvenciális,
 subprocessz nélküli működés marad. A `--workers=2` felülírja a konfigurációt;
 egy kiválasztott adatbázis legfeljebb egy, Country + ASN legfeljebb két hasznos
 workert ad. Nincs automatikus CPU-magszám-felderítés.
 
-A workerek kizárólag helyi MMDB-validálást és hash-számítást végeznek. A lock,
+A workerek kizárólag telepített vagy előkészített MMDB validálását és hash-számítását
+végzik. A frissítés nem validálja mélyen a lecserélendő régi fájlt. A lock,
 HEAD/letöltés, kicsomagolás, telepítés és state-írás a főfolyamatban marad, és
 credential nem kerül a worker argumentumaiba vagy IPC-jébe. A worker timeout
 alapértéke 1800 másodperc. Indulás előtti környezeti alkalmatlanságnál lokalizált
@@ -160,7 +182,11 @@ nem kap rejtett újrapróbálást. Két worker nagyobb memória- és I/O-terhel�
 és a gyorsulás nem minden gépen garantált. Az env módosítása után építsd újra a
 config cache-t.
 
-A `--check` csak helyi vizsgálatot és HEAD-et végez. A `--force` új GET-et kérhet,
+A frissesség és az integritás külön fogalom. A `--check` sikeres `up_to_date`
+eredménye csak azt jelenti, hogy nem ismert távoli változás; nem teljes
+integritásigazolás. Hiányzó vagy inkompatibilis state, illetve elégtelen távoli
+metaadat esetén `freshness_unknown` az eredmény, normál update pedig konzervatívan
+letölt és validál egy cserét. A `--force` új GET-et kérhet,
 de nem kapcsolja ki a validációt, a régebbi build tiltását vagy a cooldown-t.
 A korábbi 1.x konfiguráció megtartható; az új opciók alapértékeket kapnak.
 Ne írd felül ellenőrizetlenül a publisholt fájlt, mert abban saját szabályok lehetnek.
@@ -179,9 +205,10 @@ A csomag önmagában nem regisztrál ütemezett feladatot. A fenti kód és az
 `IP_ANALYZER_UPDATE_SCHEDULE=true` együtt engedélyezi az alkalmazás normál
 schedulerében; nincs párhuzamos automatikus regisztráció.
 
-Updater kilépési kódok: 0 minden vizsgálat/művelet sikerült; 1 hiba vagy részleges
+Updater kilépési kódok: 0 minden kért művelet befejeződött; check esetén az
+`update_available` és `freshness_unknown` is 0 lehet. Az 1 hiba vagy részleges
 frissítés; 2 hibás input/config vagy hiányzó credential; 3 foglalt lock, telepítés
-nem történt. A sikeres Country-t nem vonja vissza egy ASN-hiba.
+nélkül. A sikeres Country-t nem vonja vissza egy ASN-hiba.
 A `partialFailure` és az egyes eredmények `installed` mezője mutatja a tényleges helyzetet.
 
 Kifelé HTTPS/443 és DNS kell a MaxMind download hosthoz és a dokumentált R2 hosthoz.

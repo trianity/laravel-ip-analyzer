@@ -15,5 +15,8 @@ final readonly class UpdateResult
         public ?string $warning = null,
         public ?int $nextRetryAt = null,
         public bool $installed = false,
+        public ?string $localStatus = null,
+        public ?string $localErrorCode = null,
+        public bool $integrityVerified = false,
     ) {}
 }

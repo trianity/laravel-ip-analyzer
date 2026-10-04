@@ -76,6 +76,9 @@ final class HumanResult
         if (isset($row['errorCode'])) {
             $keys[] = 'errors.'.$row['errorCode'];
         }
+        if (isset($row['localErrorCode']) && $row['localErrorCode'] !== ($row['errorCode'] ?? null)) {
+            $keys[] = 'errors.'.$row['localErrorCode'];
+        }
         if (isset($row['warning'])) {
             $keys[] = 'warnings.'.$row['warning'];
         }

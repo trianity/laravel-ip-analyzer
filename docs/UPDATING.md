@@ -25,6 +25,12 @@ application as shown below. `EditionIDs` is not a package configuration key:
 Both are selected by default. GeoLite2-City, even if listed in your account or
 GeoIP.conf, is not supported by this package.
 
+Lookup, status and `ip-data:verify` also accept a manually installed
+GeoIP2-Country database. The built-in updater does not download that commercial
+edition: it treats it as incompatible with GeoLite2 freshness state, reports
+unknown freshness in check mode and attempts to obtain a validated GeoLite2
+replacement in a normal run. The existing GeoIP2 build epoch still prevents a downgrade.
+
 The checked [MaxMind guide](https://dev.maxmind.com/geoip/updating-databases/)
 and [download specification](https://github.com/maxmind/openapi/blob/main/bundled/downloads.yaml)
 define HTTPS Basic Auth, binary `suffix=tar.gz` and redirects to signed R2 URLs.
@@ -33,9 +39,9 @@ The package defaults to:
 - `https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz`
 - `https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz`
 
-Only these binary editions are supported. Sources may include an eight-digit
-`date` selector; credentials in a URL are rejected. CSV ZIPs, other source hosts
-and arbitrary query parameters are not accepted.
+Only these binary updater source editions are supported. Sources may include an
+eight-digit `date` selector; credentials in a URL are rejected. CSV ZIPs, other
+source hosts and arbitrary query parameters are not accepted.
 
 ## Host application configuration
 
@@ -153,12 +159,14 @@ is read-only; operators must heed its reported retry time.
 
 ## Freshness and state
 
-A normal run takes the target lock, validates the local database, reads state and
-performs HEAD. A matching source/target identity, unchanged local hash/build epoch
-and common HTTP validators allow a GET-free skip. Common ETag hashes take priority;
+A normal run takes the target lock, performs a lightweight local metadata inspection,
+reads state and performs HEAD. Compatible completed state, usable local metadata and
+matching HTTP validators allow a GET-free skip without claiming local integrity.
+Common ETag hashes take priority;
 Last-Modified can be compared when only GET supplies ETag. A missing/unparseable
 HEAD validator or HEAD 405/501 causes conservative GET for normal runs, and
-`update_available` with `remote_version_unverified` for check mode. HEAD
+`freshness_unknown` with `remote_version_unverified` for check mode. Missing,
+invalid or edition-incompatible state also produces `freshness_unknown`. HEAD
 401/403/429 never falls back to GET. Unsolicited 304 is an error; no conditional
 GET protocol is assumed.
 
@@ -173,7 +181,10 @@ avoiding a HEAD/GET release race. Missing, corrupt or wrong-type local files for
 download regardless of state. Source changes invalidate the previous identity.
 Downloaded candidates older than the valid local build are rejected, including
 force runs, also when the existing Country file is a manually installed
-GeoIP2-Country database. Identical content avoids rename but can update verification metadata.
+GeoIP2-Country database. State is evidence of a previous successful installation,
+not proof that the current file bytes never changed. Therefore forced or conservative
+replacement installs the fully validated candidate even when its hash equals the
+recorded historical hash.
 
 The local SHA-256 is a change fingerprint, **not source authentication**.
 This version does not fetch vendor checksum files.
@@ -195,9 +206,11 @@ LICENSE, COPYRIGHT and README (with optional filename extension) are retained in
 the private target workspace's `notices/` directory. These database notices keep
 their original licenses; they are not relicensed as MIT.
 
-The existing LocalDatabase inspector checks type and metadata. The low-level
-MaxMind SDK then walks every reachable address range, decodes its records and
-checks Country/ASN field shape under the traversal limit. This catches synthetic
+The lightweight LocalDatabase inspector checks availability, type and metadata
+without enumerating records or hashing the file. `ip-data:verify` applies the full
+validation to installed files. During update, it applies only to newly extracted
+candidates. The low-level MaxMind SDK walks every reachable address range, decodes
+its records and checks Country/ASN field shape under the traversal limit. This catches synthetic
 corrupt record payloads even when metadata alone succeeds. It does not prove
 geographic accuracy, authenticate the producer, or inspect unreachable padding.
 Future/nonpositive build epochs fail. No expected real-world country for a live
@@ -256,12 +269,15 @@ filesystem or sudden-power-loss durability guarantee is made.
 php artisan ip-data:update
 php artisan ip-data:update --database=country --database=asn --json
 php artisan ip-data:update --check --json
-php artisan ip-data:update --check --workers=2
+php artisan ip-data:verify --workers=2
+php artisan ip-data:update --workers=2
 php artisan ip-data:update --force
 ```
 
 Default selection is Country + ASN. Unknown names are configuration errors.
-Check wins over force: it never GETs or mutates update state. The final result
+Check wins over force: it never traverses records, hashes the full file, GETs or
+mutates update state. `verify` performs no network, download, installation or state
+write. The final result
 has a `results` array and `partialFailure`. Since 2.1, human mode surrounds its
 indented JSON result with progress and a total-duration summary. `--no-progress`
 removes phase messages but keeps the final human summary. `--json` alone emits
@@ -281,28 +297,34 @@ metadata `nodeCount + 1` is not the total number of SDK traversal iterations, so
 it has no percentage or ETA, and no second pass is made to manufacture a total.
 Known-size byte phases retain percentage and smoothed ETA. Normal elapsed display
 uses whole seconds and ETA uses approximate rounded seconds/minutes. JSON fields
-and numeric snapshots are unchanged.
+and numeric progress snapshots were unchanged by the 2.2.1 rendering work. Version
+2.3 adds the result fields and verification result documented below.
 JSON, including existing message fields, remains locale-independent.
-See [progress, ETA and interruption behavior](../README.md#update-progress-21).
-Since 2.2, Country and ASN local validation can run in at most two separate PHP
-processes with `--workers=2`. One task or one worker remains in-process. The main
+See [progress, ETA and interruption behavior](../README.md#update-and-verification-progress).
+Country and ASN verification, or two prepared update candidates, can run in at most
+two separate PHP processes with `--workers=2`. One task or one worker remains
+in-process. The main
 process retains locks and all network/install/state work. Startup capability
 failure falls back before validation; a started worker failure or timeout does not.
 Parallel operation can use more memory and storage I/O and may not be faster on
-every system. See [parallel validation](../README.md#parallel-local-validation-22).
- Per-target fields include database, status, oldBuildEpoch,
-newBuildEpoch, errorCode, warning, nextRetryAt (Unix seconds), and installed.
+every system. See [freshness and parallel validation](../README.md#freshness-and-parallel-validation-23).
+Update-result fields include database, status, oldBuildEpoch, newBuildEpoch,
+errorCode, warning, nextRetryAt (Unix seconds), installed, localStatus,
+localErrorCode and integrityVerified. Verify results contain database, status,
+buildEpoch, sha256, errorCode and integrityVerified.
 
-States are updated, up_to_date, update_available, busy or failed.
-Only an actual rename yields updated/installed=true. Check's update_available
-means a download is needed or conservatively required, not proof of a newer build.
+Update/check states are updated, up_to_date, update_available, freshness_unknown,
+busy or failed; verification adds verified. Only an actual rename yields
+updated/installed=true. Check's update_available means comparable remote validators
+changed. `freshness_unknown` means the available evidence cannot decide freshness.
+Neither `up_to_date` nor lightweight local status means integrity was verified.
 
 | Exit | Meaning / precedence |
 | --- | --- |
-| 2 | Invalid config/input/missing credentials, detected before network/install |
+| 2 | Invalid config/input, or missing updater credentials for update/check, detected before network/install |
 | 1 | Any failure, or busy combined with an actual successful installation |
 | 3 | Busy with no installation and no other failure |
-| 0 | All requested operations succeeded; check may report update_available |
+| 0 | All operations completed; check may report update_available or freshness_unknown |
 | 130 | Cooperative Ctrl-C interruption; no overall success is claimed |
 
 A per-target failure can still include installed=true after metadata failure.

@@ -33,7 +33,7 @@ it('localizes only stderr when JSON progress is requested', function ($locale, $
     app()->instance(Transport::class, $transport);
     expect(Artisan::call('ip-data:update', ['--check' => true, '--json' => true, '--progress' => true], $output))->toBe(0);
     expect(progressText($err))->toContain($expected)->not->toContain('secret');
-    expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'][0]['status'])->toBe('update_available');
+    expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'][0]['status'])->toBe('freshness_unknown');
     fclose($out);
     fclose($err);
 })->with([['en', 'Total duration'], ['hu', 'Teljes futási idő'], ['de', 'Total duration']]);
@@ -77,7 +77,7 @@ it('localizes human statuses warnings and sanitized errors without leaking upstr
     $transport->shouldReceive('request')->once()->andReturn(new RemoteResponse(200));
     app()->instance(Transport::class, $transport);
     expect(Artisan::call('ip-data:update', ['--database' => ['country'], '--check' => true, '--no-progress' => true]))->toBe(0);
-    expect(Artisan::output())->toContain('A távoli verzió nem igazolható.', 'Frissítés szükséges', 'update_available')
+    expect(Artisan::output())->toContain('A távoli verzió nem igazolható.', 'A frissesség nem állapítható meg', 'freshness_unknown')
         ->not->toContain('hidden-key');
     $transport = Mockery::mock(Transport::class);
     $transport->shouldReceive('request')->once()->andThrow(new RuntimeException('hidden-key signed-r2-url'));

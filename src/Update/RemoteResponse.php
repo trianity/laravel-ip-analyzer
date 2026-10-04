@@ -7,6 +7,14 @@ namespace Trianity\IpAnalyzer\Update;
 final readonly class RemoteResponse
 {
     /** @param array<string, mixed> $state */
+    public function canCompare(array $state): bool
+    {
+        return ($this->etagHash !== null && is_string($state['etag_hash'] ?? null))
+            || ($this->lastModified !== null && is_int($state['last_modified'] ?? null))
+            || ($this->validator !== null && is_string($state['validator'] ?? null));
+    }
+
+    /** @param array<string, mixed> $state */
     public function matches(array $state): bool
     {
         if ($this->etagHash !== null && is_string($state['etag_hash'] ?? null)) {

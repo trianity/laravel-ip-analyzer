@@ -97,7 +97,7 @@ it('does not replace old bytes after a wrong-type candidate or downgrade even wi
 it('check only makes HEAD and does not create or change files', function () {
     $transport = updateTransport();
     app()->instance(Transport::class, $transport);
-    expect(app(DatabaseUpdater::class)->run(['country'], check: true)[0]->status)->toBe('update_available')
+    expect(app(DatabaseUpdater::class)->run(['country'], check: true)[0]->status)->toBe('freshness_unknown')
         ->and($transport->methods)->toBe(['HEAD'])
         ->and(iterator_count(new FilesystemIterator($this->directory)))->toBe(0);
 });
@@ -111,14 +111,14 @@ it('repairs missing files despite previous state', function () {
         ->and($transport->methods)->toBe(['HEAD', 'GET', 'HEAD', 'GET']);
 });
 
-it('does not rename identical bytes even with force', function () {
+it('conservatively replaces even identical bytes when force requests a validated download', function () {
     copy(__DIR__.'/../../Fixtures/country.mmdb', $this->directory.'/country.mmdb');
     $inode = fileinode($this->directory.'/country.mmdb');
     app()->instance(Transport::class, updateTransport());
     $result = app(DatabaseUpdater::class)->run(['country'], force: true)[0];
     clearstatcache();
-    expect($result->status)->toBe('up_to_date')->and($result->installed)->toBeFalse()
-        ->and(fileinode($this->directory.'/country.mmdb'))->toBe($inode);
+    expect($result->status)->toBe('updated')->and($result->installed)->toBeTrue()
+        ->and(fileinode($this->directory.'/country.mmdb'))->not->toBe($inode);
 });
 
 it('honors target locks and releases them after errors', function () {
@@ -203,7 +203,7 @@ it('recovers after database rename succeeds but state finalization fails', funct
     expect($result->status)->toBe('failed')->and($result->installed)->toBeTrue()
         ->and($result->errorCode)->toBe('installed_metadata_failed')
         ->and(app(IpLookup::class)->lookup('8.8.8.8')->countryCode)->toBe('HU');
-    expect(app(DatabaseUpdater::class)->run(['country'])[0]->status)->toBe('up_to_date')
+    expect(app(DatabaseUpdater::class)->run(['country'])[0]->status)->toBe('updated')
         ->and($transport->methods)->toBe(['HEAD', 'GET', 'HEAD', 'GET']);
 });
 
@@ -303,7 +303,7 @@ it('recovers notices after a post-install notice error', function () {
     app()->instance(UpdateStorage::class, $storage);
     app()->instance(Transport::class, updateTransport());
     expect(app(DatabaseUpdater::class)->run(['country'])[0]->errorCode)->toBe('installed_metadata_failed');
-    expect(app(DatabaseUpdater::class)->run(['country'])[0]->status)->toBe('up_to_date')
+    expect(app(DatabaseUpdater::class)->run(['country'])[0]->status)->toBe('updated')
         ->and(file_get_contents($storage->directory($this->directory.'/country.mmdb').'/notices/LICENSE.txt'))->toBe('Synthetic MIT');
 });
 

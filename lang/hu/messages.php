@@ -2,7 +2,7 @@
 
 return [
     'progress' => [
-        'start' => 'A helyi adatbázis teljes integritásvizsgálata több percig tarthat.',
+        'start' => 'A teljes MMDB-validálás szükség esetén több percig tarthat.',
         'phase' => ':database | :phase',
         'ranges' => ':count CIDR-tartomány',
         'bytes' => ':count bájt',
@@ -27,6 +27,7 @@ return [
         'short_phases' => [
             'configuration' => 'Előkészítés',
             'lock' => 'Lock várakozás',
+            'local_inspection' => 'Helyi metaadat',
             'validation_waiting' => 'Worker várakozik',
             'validation_running' => 'Worker fut',
             'validation_complete' => 'Validálás kész',
@@ -43,6 +44,7 @@ return [
             'done' => 'Kész',
             'unchanged' => 'Változatlan',
             'available' => 'Frissítés szükséges',
+            'unknown' => 'Ismeretlen frissesség',
             'failed' => 'Hiba',
             'busy' => 'Foglalt',
             'interrupted' => 'Megszakítva',
@@ -51,6 +53,7 @@ return [
     'phases' => [
         'configuration' => 'Konfiguráció és helyi állapot',
         'lock' => 'Lock várakozás',
+        'local_inspection' => 'Helyi MMDB-metaadat ellenőrzése',
         'validation_waiting' => 'Várakozás validáló workerre',
         'validation_running' => 'A validáló worker fut',
         'validation_complete' => 'A helyi validálás elkészült',
@@ -67,6 +70,7 @@ return [
         'done' => 'Kész',
         'unchanged' => 'Változatlan',
         'available' => 'Ellenőrzés kész, letöltés szükséges',
+        'unknown' => 'A frissesség nem állapítható meg',
         'failed' => 'Hiba',
         'busy' => 'Foglalt',
         'interrupted' => 'Megszakítva',
@@ -80,6 +84,7 @@ return [
         'lookup' => 'Helyi IP-adatok lekérdezése és megfigyelési szabályok kiértékelése',
         'status' => 'Helyi adatbázis-metaadatok ellenőrzése IP-lekérdezés nélkül',
         'update' => 'Helyi MaxMind-adatbázisok kifejezett letöltése és atomikus frissítése',
+        'verify' => 'Telepített helyi MaxMind-adatbázisok teljes integritásvizsgálata',
     ],
     'result' => [
         'source' => ':database: :status',
@@ -92,8 +97,10 @@ return [
         'invalid_input' => 'Hibás bemenet',
         'non_public' => 'Kizárt speciális célú cím',
         'updated' => 'Frissítve',
-        'up_to_date' => 'Naprakész',
+        'up_to_date' => 'Nem ismert távoli frissítés',
         'update_available' => 'Frissítés szükséges',
+        'freshness_unknown' => 'A frissesség nem állapítható meg',
+        'verified' => 'Integritás ellenőrizve',
         'busy' => 'Foglalt',
         'failed' => 'Sikertelen',
     ],
@@ -107,6 +114,7 @@ return [
         'invalid_configuration_or_rule' => 'Hibás konfiguráció vagy megfigyelési szabály.',
         'invalid_update_configuration' => 'Hibás frissítési konfiguráció.',
         'update_failed' => 'Az adatbázis-frissítés sikertelen.',
+        'verification_failed' => 'Az adatbázis integritásvizsgálata sikertelen.',
         'interrupted' => 'Megszakítva.',
         'file_unreadable' => 'Az adatbázisfájl nem olvasható.',
         'invalid_database' => 'Az adatbázis érvénytelen vagy sérült.',

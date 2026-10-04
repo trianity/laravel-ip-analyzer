@@ -16,7 +16,6 @@ use Trianity\IpAnalyzer\Update\Progress\Interrupted;
 use Trianity\IpAnalyzer\Update\Progress\Observer;
 use Trianity\IpAnalyzer\Update\Progress\Progress;
 use Trianity\IpAnalyzer\Update\Progress\Snapshot;
-use Trianity\IpAnalyzer\Update\RemoteResponse;
 use Trianity\IpAnalyzer\Update\Transport;
 use Trianity\IpAnalyzer\Update\UpdateFailure;
 use Trianity\IpAnalyzer\Update\UpdateOptions;
@@ -82,11 +81,7 @@ it('does not start subprocesses with one worker or one selected database', funct
     $parallel = Mockery::mock(ParallelValidationExecutorContract::class);
     $parallel->shouldNotReceive('supported', 'execute');
     app()->instance(ParallelValidationExecutorContract::class, $parallel);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->times(count($databases))->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
-
-    expect(Artisan::call('ip-data:update', ['--database' => $databases, '--check' => true, '--json' => true]))->toBe(0);
+    expect(Artisan::call('ip-data:verify', ['--database' => $databases, '--json' => true]))->toBe(0);
 })->with([
     [1, ['country', 'asn']],
     [2, ['country']],
@@ -97,27 +92,19 @@ it('lets the CLI force sequential execution over parallel configuration', functi
     $parallel = Mockery::mock(ParallelValidationExecutorContract::class);
     $parallel->shouldNotReceive('supported', 'execute');
     app()->instance(ParallelValidationExecutorContract::class, $parallel);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
-
-    expect(Artisan::call('ip-data:update', [
-        '--check' => true, '--workers' => '1', '--json' => true,
+    expect(Artisan::call('ip-data:verify', [
+        '--workers' => '1', '--json' => true,
     ]))->toBe(0);
 });
 
 it('runs both validations through real subprocesses and preserves requested result order', function () {
     config(['ip-analyzer.validation.workers' => 2, 'ip-analyzer.validation.worker_timeout' => 30]);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
-
-    expect(Artisan::call('ip-data:update', [
-        '--database' => ['asn', 'country'], '--check' => true, '--json' => true,
+    expect(Artisan::call('ip-data:verify', [
+        '--database' => ['asn', 'country'], '--json' => true,
     ]))->toBe(0);
     $results = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR)['results'];
     expect(array_column($results, 'database'))->toBe(['asn', 'country'])
-        ->and(array_column($results, 'oldBuildEpoch'))->toBe([1700000000, 1700000000])
+        ->and(array_column($results, 'buildEpoch'))->toBe([1700000000, 1700000000])
         ->and(array_map('basename', glob($this->directory.'/*') ?: []))->toBe(['asn.mmdb', 'country.mmdb']);
 });
 
@@ -368,13 +355,10 @@ it('falls back before starting work and keeps JSON stdout clean', function () {
     $parallel->shouldReceive('supported')->once()->andReturnFalse();
     $parallel->shouldNotReceive('execute');
     app()->instance(ParallelValidationExecutorContract::class, $parallel);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
     [$output, $out, $err] = separatedProgressOutput();
 
-    expect(Artisan::call('ip-data:update', [
-        '--check' => true, '--json' => true, '--progress' => true,
+    expect(Artisan::call('ip-data:verify', [
+        '--json' => true, '--progress' => true,
     ], $output))->toBe(0);
     expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'])->toHaveCount(2);
     expect(progressText($err))->toContain('szekvenciális validálás')->not->toContain("\033", "\r");
@@ -388,11 +372,7 @@ it('falls back when the first worker cannot be started', function () {
     $parallel->shouldReceive('supported')->once()->andReturnTrue();
     $parallel->shouldReceive('execute')->once()->andThrow(new ParallelUnavailable);
     app()->instance(ParallelValidationExecutorContract::class, $parallel);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
-
-    expect(Artisan::call('ip-data:update', ['--check' => true, '--json' => true]))->toBe(0);
+    expect(Artisan::call('ip-data:verify', ['--json' => true]))->toBe(0);
 });
 
 it('maps missing results crashes and timeouts to bounded worker failures', function ($mode, $expected) {
@@ -485,14 +465,10 @@ it('rejects a replaced validated file and releases both main-process locks', fun
             ];
         });
     app()->instance(ParallelValidationExecutorContract::class, $parallel);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->once()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
-
-    expect(Artisan::call('ip-data:update', ['--check' => true, '--json' => true]))->toBe(1);
+    expect(Artisan::call('ip-data:verify', ['--json' => true]))->toBe(1);
     $results = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR)['results'];
     expect($results[0]['errorCode'])->toBe('validation_file_changed')
-        ->and($results[1]['status'])->toBe('update_available');
+        ->and($results[1]['status'])->toBe('verified');
     foreach (['country', 'asn'] as $database) {
         $lock = $storage->lock($this->directory.'/'.$database.'.mmdb', true, app(UpdateOptions::class));
         $storage->unlock($lock);
@@ -502,13 +478,10 @@ it('rejects a replaced validated file and releases both main-process locks', fun
 it('localizes parallel progress per database while keeping JSON on stdout', function () {
     app()->setLocale('hu');
     config(['ip-analyzer.validation.workers' => 2]);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
     [$output, $out, $err] = separatedProgressOutput();
 
-    expect(Artisan::call('ip-data:update', [
-        '--check' => true, '--json' => true, '--progress' => true,
+    expect(Artisan::call('ip-data:verify', [
+        '--json' => true, '--progress' => true,
     ], $output))->toBe(0);
     expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'])->toHaveCount(2);
     expect(progressText($err))->toContain('Ország', 'ASN', 'Helyi MMDB', 'SHA-256');
@@ -518,16 +491,13 @@ it('localizes parallel progress per database while keeping JSON on stdout', func
 
 it('keeps worker protocol out of quiet and no-progress output', function (bool $quiet) {
     config(['ip-analyzer.validation.workers' => 2]);
-    $transport = Mockery::mock(Transport::class);
-    $transport->shouldReceive('request')->twice()->andReturn(new RemoteResponse(200));
-    app()->instance(Transport::class, $transport);
     [$output, $out, $err] = separatedProgressOutput();
-    $arguments = ['--check' => true, $quiet ? '--quiet' : '--no-progress' => true];
+    $arguments = [$quiet ? '--quiet' : '--no-progress' => true];
     if ($quiet) {
         $arguments['--json'] = true;
     }
 
-    expect(Artisan::call('ip-data:update', $arguments, $output))->toBe(0);
+    expect(Artisan::call('ip-data:verify', $arguments, $output))->toBe(0);
     if ($quiet) {
         expect(progressText($out))->toBe('');
     } else {

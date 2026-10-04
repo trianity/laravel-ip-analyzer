@@ -34,9 +34,9 @@ it('renders a successful check in human and JSON modes', function ($json) {
     expect(Artisan::call('ip-data:update', ['--database' => ['country'], '--check' => true, '--json' => $json]))->toBe(0);
     if ($json) {
         $result = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
-        expect($result['results'][0]['status'])->toBe('update_available')->and($result['partialFailure'])->toBeFalse();
+        expect($result['results'][0]['status'])->toBe('freshness_unknown')->and($result['partialFailure'])->toBeFalse();
     } else {
-        expect(Artisan::output())->toContain('update_available', 'Total duration');
+        expect(Artisan::output())->toContain('Freshness cannot be determined', 'Total duration');
     }
 })->with([true, false]);
 

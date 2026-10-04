@@ -1,11 +1,12 @@
 # Laravel IP Analyzer
 
-Documentation for **2.2.1** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.3.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
-files; lookups and read-only diagnostics perform no HTTP, DNS, downloads or telemetry.
-The explicit `ip-data:update` command can acquire and update these files over HTTPS.
+files. Runtime lookups, `ip-data:status`, `ip-data:verify` and `about` perform no HTTP,
+DNS, downloads or telemetry. The explicit `ip-data:update` command, including its
+read-only `--check` mode, can contact the configured source over HTTPS.
 
 The package does not make signup decisions, block requests, assign a global risk
 score or ship an application blacklist. Country/ASN data is not bot evidence; an
@@ -14,10 +15,10 @@ empty match list does not certify safety.
 ## Installation and use
 
 Requirements: PHP 8.4 or 8.5, Laravel 12 or 13, and the PHP cURL and zlib extensions.
-For the 2.2 release series:
+For the 2.3 release series:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:^2.2
+composer require trianity/laravel-ip-analyzer:^2.3
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
@@ -86,8 +87,13 @@ Stable source error codes are `file_unreadable`, `invalid_database`,
 Expected SDK data/IO errors become states; programming errors propagate from PHP
 services. Custom-rule errors also propagate.
 
-Accepted metadata types are exactly `GeoLite2-Country` or `GeoIP2-Country` for Country
-and `GeoLite2-ASN` for ASN. City/ISP databases are deliberately not substitutes.
+Lookup, status and explicit verification accept exactly `GeoLite2-Country` or
+`GeoIP2-Country` for Country and `GeoLite2-ASN` for ASN. The built-in updater manages
+the configured `GeoLite2-Country` and `GeoLite2-ASN` editions only. A manually installed
+`GeoIP2-Country` remains readable and verifiable, but is edition-incompatible with
+updater freshness state; check reports unknown freshness and a normal update attempts
+to obtain a validated GeoLite2 replacement. Its build epoch still participates in
+downgrade protection. City/ISP databases are deliberately not substitutes.
 Metadata contains `databaseType`, `buildEpoch`, `ageDays`, `stale`, and `futureBuild`.
 Age is clamped to zero for a future build; `futureBuild=true` makes that clock
 anomaly explicit. Stale means age **strictly greater than** `max_age_days` (default
@@ -150,6 +156,7 @@ Config contains class names, not closures or instantiated rules, so it can be ca
 php artisan ip-data:lookup 8.8.8.8
 php artisan ip-data:lookup 2606:4700:4700::1111 --json
 php artisan ip-data:status --json
+php artisan ip-data:verify --database=country --json
 php artisan about
 ```
 
@@ -158,21 +165,27 @@ result; `--json` emits one compact parseable document without decoration. Lookup
 Status reports each source's readability/structural metadata status, without
 opening records or making a geographic probe. Found in status means metadata was
 read successfully; it is not an exhaustive integrity scan of every record.
+`ip-data:verify` performs that full offline traversal and SHA-256 calculation for
+both configured files by default, or for the requested `--database` selections.
 Both configured sources are required for command availability.
 
-| Exit | Lookup | Status |
-| --- | --- | --- |
-| 0 | Usable check; includes NotFound, NonPublic, stale data and rule matches | Both sources readable, right type, not stale |
-| 1 | At least one source Unavailable | At least one source Unavailable or stale |
-| 2 | Invalid input/configuration or rule failure | Invalid configuration or unexpected failure |
+| Exit | Lookup | Status | Verify |
+| --- | --- | --- | --- |
+| 0 | Usable check; includes NotFound, NonPublic, stale data and rule matches | Both sources readable, right type, not stale | Every selected database verified |
+| 1 | At least one source Unavailable | At least one source Unavailable or stale | Failure, or busy mixed with a successful verification |
+| 2 | Invalid input/configuration or rule failure | Invalid configuration or unexpected failure | Invalid database selection/configuration |
+| 3 | — | — | Every selected operation was busy; no verification completed |
+| 130 | — | — | Cooperative Ctrl-C interruption |
 
-At the CLI boundary failures are sanitized to `{"error":"invalid_configuration_or_rule"}`
-and exit 2; exception details remain available to callers of the PHP services.
-A future-build flag alone does not change the exit code. These read-only commands never download
-data or create directories/databases. `about` reads the installed Composer version,
-with a root-package/development fallback, and does not open MMDB files.
+At the lookup/status CLI boundary failures are sanitized to
+`{"error":"invalid_configuration_or_rule"}` and exit 2; exception details remain
+available to callers of the PHP services. Verify uses the update-domain errors
+documented in the updater guide. A future-build flag alone does not change the
+lookup/status exit code. Lookup, status and verify never download data or create
+directories/databases. `about` reads the installed Composer version, with a
+root-package/development fallback, and does not open MMDB files.
 
-## Optional downloads and updates (2.0)
+## Database downloads and updates
 
 Manual MMDB installation still works without credentials. For the built-in updater,
 obtain the following from your [MaxMind account](https://www.maxmind.com/en/account/sign-in):
@@ -208,17 +221,19 @@ is **not supported** by this package.
 
 ```sh
 php artisan ip-data:update --check --json
-php artisan ip-data:update --check --workers=2
-php artisan ip-data:update
+php artisan ip-data:verify --workers=2
+php artisan ip-data:update --workers=2
 php artisan ip-data:update --database=country
 php artisan ip-data:update --force --json
 ```
 
-The first normal update invocation downloads missing files. Later invocations use HEAD and
-the installed file/state to avoid unnecessary GETs. Candidates are bounded,
-extracted in private staging, validated using the MMDB reader, and renamed
-atomically per file. Older build epochs are rejected even with `--force`.
-`--check` performs only local reads and HEAD, without installing or writing state.
+The first normal update invocation downloads missing files. Later invocations use
+lightweight local metadata, persisted installation state and HEAD to avoid unnecessary
+GETs. Prepared Country and ASN candidates can be validated concurrently, then are
+renamed atomically per file. Older build epochs are rejected even with `--force`.
+`--check` performs only lightweight metadata reads and HEAD, without record traversal,
+full-file hashing, download, installation or state writes. Use `ip-data:verify` for a
+full offline integrity scan of the installed files.
 
 Downloads use HTTPS, origin-scoped Basic Auth and a checked redirect allowlist.
 Successful lookups, provider boot, status/about and Composer installation never
@@ -232,15 +247,15 @@ a published config: new update options receive defaults. Add credentials to the
 environment used when building the config cache; republishing with `--force`
 would overwrite your custom rules and paths.
 
-## Update progress (2.1)
+## Update and verification progress
 
-Human `ip-data:update` output announces work before expensive validation and
-shows Country/ASN, the phase, measured work and elapsed time. A complete local
-integrity scan can take several minutes, including with `--check`; validation
-depth and update decisions are unchanged.
+Human update and verification output shows Country/ASN, the current phase,
+measured work and elapsed time. A complete integrity scan can take several minutes;
+the lightweight `--check` no longer performs that scan.
 
 ```sh
 php artisan ip-data:update --check               # default human progress
+php artisan ip-data:verify --workers=2           # full installed-file verification
 php artisan ip-data:update --no-progress        # final result and total duration only
 php artisan ip-data:update --json               # one final JSON document on STDOUT
 php artisan ip-data:update --json --progress     # progress and duration on STDERR
@@ -258,8 +273,10 @@ Capability detection uses the stream that receives progress, including STDERR fo
 Redirected output, CI, unsupported output implementations and `--no-ansi` use
 plain lines without cursor controls. Periodic events are limited to one line every
 15 seconds per database; initial state, phase changes and terminal states remain
-immediate. Human output includes a final total duration; the JSON result schema is
-unchanged. Use `--json` for machine parsing.
+immediate. Human output includes a final total duration. The 2.2.1 rendering change
+did not alter the then-current JSON result schema; 2.3 adds the documented freshness,
+local-health and integrity fields and the separate verification result. Use `--json`
+for machine parsing.
 
 MMDB validation reports the actual number of processed CIDR ranges. Real database
 traversal proved that metadata `nodeCount + 1` is not a valid total for the SDK's
@@ -272,10 +289,10 @@ means no download percentage or ETA. Phase ETA uses a monotonic clock and smooth
 speed, starts only after at least one second and two samples, and becomes unknown
 during a stall. It is not an estimate for the whole command. Since 2.2.1, elapsed
 time has whole-second precision and ETA is shown as approximate rounded seconds
-below one minute or rounded minutes thereafter. JSON and numeric snapshots are
-unchanged. Progress collection remains independent of rendering and does not add
-sleeps to update supervision. `--check` never shows download, extraction or
-installation as performed phases.
+below one minute or rounded minutes thereafter. The 2.2.1 precision change did not
+alter numeric progress snapshots. Progress collection remains independent of
+rendering and does not add sleeps to update supervision. `--check` never shows
+download, extraction or installation as performed phases.
 
 Where optional PHP PCNTL signal handling is available, Ctrl-C requests cooperative
 cancellation, reports interruption and exits 130. Readers, staging files and owned
@@ -290,26 +307,34 @@ See [2.1 verification](docs/VERIFICATION-2.1.md), the
 [2.1.2 ETA verification](docs/VERIFICATION-2.1.2.md), and the
 [2.2.1 compact-progress verification](docs/VERIFICATION-2.2.1.md).
 
-## Parallel local validation (2.2)
+## Freshness and parallel validation (2.3)
 
-Parallel validation is opt-in and primarily benefits a full Country + ASN check:
+Freshness and integrity are separate operations:
 
-    php artisan ip-data:update --check --workers=2
-    php artisan ip-data:update --check --workers=1 --json
-    php artisan ip-data:update --database=country --check --workers=2
+    php artisan ip-data:update --check
+    php artisan ip-data:verify --workers=2
+    php artisan ip-data:update --workers=2
+
+The check reads basic MMDB metadata and existing update state, then performs HEAD.
+It reports `freshness_unknown` when compatible state or comparable remote metadata
+is unavailable. `up_to_date` means no remote change is known; neither status claims
+that the installed file passed a full integrity scan. Local metadata health is
+reported separately. A normal update conservatively downloads a replacement when
+freshness is unknown or local metadata is unusable.
 
 Priority is the CLI workers option over ip-analyzer.validation.workers, whose
 default is 1. Effective concurrency is bounded by available tasks: Country + ASN
-can use at most two workers, while one selected database always runs directly in
-the main process. A value of 1 starts no subprocess. There is no CPU-count
-autodetection.
+verification or two prepared update candidates can use at most two workers. One
+task always runs directly in the main process; a value of 1 starts no subprocess.
+There is no CPU-count autodetection.
 
-Each worker performs one complete local MMDB traversal and hash using the same
-validator as sequential execution. It cannot perform HTTP, extraction, installation
-or state writes. The main process owns target locks, checks that the validated file
-was not replaced, performs HEAD requests and preserves deterministic requested
-result order. Worker IPC is bounded internal NDJSON and is not part of the public
-JSON schema; credentials are never passed to workers.
+Each worker performs one complete MMDB traversal and hash using the same validator
+as sequential execution. For `verify` it reads installed files; for update it reads
+only prepared candidates, never unchanged or soon-to-be-replaced installed files.
+Workers cannot perform HTTP, extraction, installation or state writes. The main
+process retains locks, checks that the validated path was not replaced, and preserves
+deterministic requested result order. Worker IPC is bounded internal NDJSON and is
+not part of the public JSON schema; credentials are never passed to workers.
 
 The ip-analyzer.validation.worker_timeout setting defaults to 1800 seconds. If
 proc_open, a readable Composer autoloader or a usable PHP CLI executable is
@@ -325,7 +350,8 @@ Two workers may roughly double validation memory use and increase storage I/O.
 Speedup depends on CPU, filesystem/cache behavior and MMDB sizes and is not
 guaranteed. Download, HEAD, extraction, installation and state writes remain
 non-parallel. Rebuild Laravel's config cache after changing either environment
-setting. See [2.2 verification](docs/VERIFICATION-2.2.md).
+setting. See the [current updater guide](docs/UPDATING.md) for the complete 2.3
+contract and [2.2 verification](docs/VERIFICATION-2.2.md) for the worker foundation.
 
 ## Language and application overrides (2.1.1)
 
@@ -378,8 +404,9 @@ or table headers to translate.
 
 `--json` output is locale-independent, including existing `message` fields.
 With `--json --progress`, only STDERR human progress is localized; STDOUT remains
-one unchanged JSON document. Quiet, no-progress, timing, validation, installation
-and cancellation behavior are unchanged. See the
+exactly one JSON document. The localization layer does not itself change quiet,
+no-progress, timing, validation, installation or cancellation behavior; later
+releases may add documented result fields or workflow changes. See the
 [2.1.1 verification record](docs/VERIFICATION-2.1.1.md) for test results.
 
 ## Manual data maintenance
@@ -392,19 +419,23 @@ applicable terms. The package does not supply production databases or credential
    the destination. Keep credentials out of the application repository.
 2. Verify the source/checksum using the vendor's distribution information.
    Check file ownership and read permissions for the PHP worker account.
-3. Validate candidate metadata with the local SDK: exact database type, acceptable
-   build date and no future-clock anomaly. In an isolated application process,
-   point the two config paths at staged files and run `ip-data:status --json`.
+3. Validate candidate metadata with the local SDK: supported database type,
+   acceptable build date and no future-clock anomaly. In an isolated application
+   process, point the two config paths at staged files and run `ip-data:status --json`.
    Ensure cached config is not still pointing at the installed files.
-4. For deeper integrity checks, read known records offline; status validates metadata,
-   not every tree node. Do not overwrite/truncate a live MMDB in place.
+4. Run `ip-data:verify --json` in that isolated process for a full traversal and
+   SHA-256 calculation. Status validates metadata only; it does not inspect every
+   reachable range. Do not overwrite/truncate a live MMDB in place.
 5. Rename each validated candidate over its destination atomically on that same
    filesystem. Retain a rollback copy under the applicable data terms, and run
    status with the application's normal config again.
 
 An operator-controlled atomic rename preserves active readers and lets the next
-operation see the replacement. The optional V2 updater performs this workflow
-without changing offline lookup behavior.
+operation see the replacement. The built-in updater automates bounded download,
+archive extraction, exact downloaded-edition validation, full candidate verification
+and per-file atomic replacement without changing offline lookup behavior. It does
+not fetch vendor checksum files or authenticate the producer; source/checksum
+verification remains an operator responsibility for manual installation.
 
 ## Development and compatibility
 

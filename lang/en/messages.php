@@ -2,7 +2,7 @@
 
 return [
     'progress' => [
-        'start' => 'The full integrity check of the local database may take several minutes.',
+        'start' => 'Full MMDB validation, when required, may take several minutes.',
         'phase' => ':database | :phase',
         'ranges' => '{1}:count CIDR range|[0,*]:count CIDR ranges',
         'bytes' => '{1}:count byte|[0,*]:count bytes',
@@ -27,6 +27,7 @@ return [
         'short_phases' => [
             'configuration' => 'Setup',
             'lock' => 'Lock wait',
+            'local_inspection' => 'Local metadata',
             'validation_waiting' => 'Worker queued',
             'validation_running' => 'Worker running',
             'validation_complete' => 'Validation complete',
@@ -43,6 +44,7 @@ return [
             'done' => 'Done',
             'unchanged' => 'Unchanged',
             'available' => 'Update required',
+            'unknown' => 'Freshness unknown',
             'failed' => 'Failed',
             'busy' => 'Busy',
             'interrupted' => 'Interrupted',
@@ -51,6 +53,7 @@ return [
     'phases' => [
         'configuration' => 'Configuration and local state',
         'lock' => 'Waiting for lock',
+        'local_inspection' => 'Checking local MMDB metadata',
         'validation_waiting' => 'Waiting for validation worker',
         'validation_running' => 'Validation worker running',
         'validation_complete' => 'Local validation complete',
@@ -67,6 +70,7 @@ return [
         'done' => 'Done',
         'unchanged' => 'Unchanged',
         'available' => 'Check complete, download required',
+        'unknown' => 'Freshness cannot be determined',
         'failed' => 'Failed',
         'busy' => 'Busy',
         'interrupted' => 'Interrupted',
@@ -80,6 +84,7 @@ return [
         'lookup' => 'Read local IP facts and evaluate observation rules',
         'status' => 'Inspect local database metadata without querying an IP',
         'update' => 'Explicitly download and atomically update local MaxMind databases',
+        'verify' => 'Deeply verify the integrity of installed local MaxMind databases',
     ],
     'result' => [
         'source' => ':database: :status',
@@ -92,8 +97,10 @@ return [
         'invalid_input' => 'Invalid input',
         'non_public' => 'Excluded special-purpose address',
         'updated' => 'Updated',
-        'up_to_date' => 'Up to date',
+        'up_to_date' => 'No known remote update',
         'update_available' => 'Update required',
+        'freshness_unknown' => 'Freshness cannot be determined',
+        'verified' => 'Integrity verified',
         'busy' => 'Busy',
         'failed' => 'Failed',
     ],
@@ -107,6 +114,7 @@ return [
         'invalid_configuration_or_rule' => 'Invalid configuration or observation rule.',
         'invalid_update_configuration' => 'Invalid update configuration.',
         'update_failed' => 'The database update failed.',
+        'verification_failed' => 'Database verification failed.',
         'interrupted' => 'Interrupted.',
         'file_unreadable' => 'The database file cannot be read.',
         'invalid_database' => 'The database is invalid or corrupt.',

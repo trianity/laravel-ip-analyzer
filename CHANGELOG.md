@@ -4,6 +4,30 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.3.0] - 2026-10-04
+
+### Added
+
+- Add `ip-data:verify` for explicit, offline full traversal and SHA-256 verification
+  of installed Country/ASN databases, with selection, JSON/progress/quiet modes and
+  the existing configurable worker limit.
+- Add explicit `freshness_unknown`, local metadata health and `integrityVerified`
+  result data so freshness does not masquerade as an integrity guarantee.
+
+### Changed
+
+- `ip-data:update --check` is now a lightweight, read-only metadata/state/HEAD check.
+  It performs no record traversal, local full-file hash, GET, extraction, installation
+  or state write.
+- Normal update no longer deeply validates installed databases. Downloads and
+  extraction remain sequential, while prepared Country/ASN candidates enter one
+  worker-limited validation batch before per-database atomic installation.
+- Missing or metadata-invalid local databases and unknown freshness conservatively
+  trigger a validated replacement. `--force` still cannot bypass validation, archive
+  safety, locking or downgrade protection.
+- An identical forced or conservative download is installed rather than trusting
+  historical state as proof that current local bytes are unchanged.
+
 ## [2.2.1] - 2026-10-04
 
 ### Changed

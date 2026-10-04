@@ -7,7 +7,7 @@ namespace Trianity\IpAnalyzer\Update\Parallel;
 use Trianity\IpAnalyzer\Update\Progress\Phase;
 use Trianity\IpAnalyzer\Update\Progress\Progress;
 
-final class ValidationScheduler
+final class ValidationScheduler implements ValidationExecutor
 {
     public function __construct(
         private readonly SequentialValidationExecutor $sequential,
