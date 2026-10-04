@@ -34,7 +34,7 @@ final class UpdateCommand extends DataCommand
             $channel = $this->option('json')
                 ? ($output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : new StreamOutput(fopen('php://stderr', 'wb')))
                 : $output;
-            $reporter = new UpdateProgress($channel);
+            $reporter = new UpdateProgress($channel, databases: $this->option('database'));
         }
         $progress->observe($reporter ?? new NullObserver);
         $signals->install($progress);
@@ -47,33 +47,38 @@ final class UpdateCommand extends DataCommand
                 $this->option('workers'),
             );
             $progress->checkpoint();
-            $reporter?->endLine();
             $failed = count(array_filter($results, fn ($result) => $result->status === 'failed'));
             $busy = count(array_filter($results, fn ($result) => $result->status === 'busy'));
             $succeeded = count($results) - $failed - $busy;
             $installed = count(array_filter($results, fn ($result) => $result->installed));
             $exit = $failed > 0 || ($busy > 0 && $installed > 0) ? 1 : ($busy > 0 ? 3 : 0);
+            $reporter?->complete($exit);
+            $reporter?->endLine();
             $this->renderResult(['results' => $results, 'partialFailure' => ($failed + $busy > 0) && ($succeeded > 0 || $installed > 0)]);
 
             return $exit;
         } catch (Interrupted) {
             $exit = 130;
+            $reporter?->complete($exit);
             $reporter?->endLine();
             $this->renderResult(['error' => 'interrupted', 'results' => [], 'partialFailure' => false]);
 
             return $exit;
         } catch (UpdateConfigurationException $exception) {
+            $reporter?->complete(2);
             $reporter?->endLine();
             $this->renderResult(['error' => 'invalid_update_configuration', 'message' => $exception->getMessage(), 'results' => [], 'partialFailure' => false]);
 
             return $exit = 2;
         } catch (InvalidArgumentException) {
+            $reporter?->complete(2);
             $reporter?->endLine();
             $this->renderResult(['error' => 'invalid_update_configuration', 'results' => [], 'partialFailure' => false]);
 
             return $exit = 2;
         } catch (Throwable) {
             // Do not let debug/verbosity expose upstream exceptions or signed URLs.
+            $reporter?->complete(1);
             $reporter?->endLine();
             $this->renderResult(['error' => 'update_failed', 'results' => [], 'partialFailure' => false]);
 

@@ -1,5 +1,9 @@
 # 2.1.2 progress estimate verification — 2026-10-04
 
+> Correction in 2.2.1: real MMDB traversal can yield more CIDR iterations than
+> `nodeCount + 1`. The synthetic fixture used here did not expose that behavior.
+> Validation percentage and ETA based on this denominator have been removed.
+
 Scope: `.idea/Refactor_03.md`. This patch changes human progress presentation and
 supplies the existing ETA calculation with the exact MMDB traversal total. It does
 not change validation depth, update decisions, JSON contracts, networking, storage

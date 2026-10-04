@@ -3,7 +3,6 @@
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
-use MaxMind\Db\Reader;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Trianity\IpAnalyzer\Console\UpdateProgress;
 use Trianity\IpAnalyzer\Update\CandidateValidator;
@@ -74,18 +73,15 @@ it('estimates a phase only after enough time and samples and handles stalls', fu
     expect(end($o->events)->eta)->toBe(0.0);
 });
 
-it('reports validation before opening a file and hashes bytes without a second record pass', function () {
+it('reports processed CIDR ranges without claiming a trie-derived total or a second record pass', function () {
     [$p, $clock, $o] = progressHarness();
     app()->instance(Progress::class, $p);
     $path = __DIR__.'/../../Fixtures/country.mmdb';
     $result = app(CandidateValidator::class)->validate('country', $path, app(UpdateOptions::class), false);
     expect($o->events[0]->phase)->toBe(Phase::LocalValidation)->and($o->events[0]->completed)->toBe(0);
     $ranges = array_values(array_filter($o->events, fn ($s) => $s->phase === Phase::LocalValidation));
-    $reader = new Reader($path);
-    $expectedRanges = $reader->metadata()->nodeCount + 1;
-    $reader->close();
-    expect(end($ranges)->completed)->toBe($expectedRanges)->and(end($ranges)->total)->toBe($expectedRanges)
-        ->and(end($ranges)->eta)->toBe(0.0);
+    expect(end($ranges)->completed)->toBeGreaterThan(0)->and(end($ranges)->total)->toBeNull()
+        ->and(end($ranges)->eta)->toBeNull();
     $last = end($o->events);
     expect($last->phase)->toBe(Phase::Hash)->and($last->completed)->toBe(filesize($path))->and($last->total)->toBe(filesize($path))
         ->and($result->sha256)->toBe(hash_file('sha256', $path));
@@ -133,7 +129,7 @@ it('renders final counts even for a short non-TTY phase', function () {
     $p->observe($reporter);
     $p->start(Phase::LocalValidation, 'country');
     $p->advance(42, force: true);
-    expect($output->fetch())->toContain('42 tartomány', 'még nem becsülhető')->not->toContain('%');
+    expect($output->fetch())->toContain('42 CIDR-tartomány', 'Eltelt: 0 s')->not->toContain('%', 'Hátralévő');
 });
 
 it('formats every human duration over sixty seconds as minutes and seconds', function () {
@@ -144,20 +140,20 @@ it('formats every human duration over sixty seconds as minutes and seconds', fun
     $reporter->finish(0, 2396.1);
 
     expect($output->fetch())->toContain(
-        'Eltelt: 27 perc 55.4 s',
-        'Fázis hátralévő ideje: 2 perc 5.2 s',
+        'Eltelt: 27 perc 55 s',
+        'Hátralévő: ~2 perc',
         'Várakozás/timeout: 2 perc 0 s',
-        'Teljes futási idő: 39 perc 56.1 s',
+        'Teljes futási idő: 39 perc 56 s',
     );
 });
 
-it('keeps exactly sixty seconds in seconds and localizes longer durations', function () {
+it('formats sixty seconds as whole-minute human progress', function () {
     app()->setLocale('en');
     $output = new BufferedOutput;
     $reporter = new UpdateProgress($output);
     $reporter->report(new Snapshot(Phase::Hash, null, 1, 2, 60.0, 60.1));
 
-    expect($output->fetch())->toContain('Elapsed: 60.0 s', 'Phase remaining time: 1 min 0.1 s');
+    expect($output->fetch())->toContain('Elapsed: 1 min 0 s', 'Remaining: ~1 min');
 });
 
 it('does not sample the clock or allocate events for disabled progress', function () {

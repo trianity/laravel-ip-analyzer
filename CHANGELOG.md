@@ -4,6 +4,23 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.2.1] - 2026-10-04
+
+### Changed
+
+- Interactive update progress now keeps one stable Country/ASN row and redraws
+  the compact block at most once per second, while phase changes, completion,
+  failures and cancellation remain immediate.
+- Redirected, CI, unsupported and `--no-ansi` output now emits plain periodic
+  progress at most once every 15 seconds per database, without cursor controls.
+- Human elapsed times use whole seconds and ETA uses compact approximate seconds
+  or minutes after the existing smoothing warm-up. Unknown totals omit percentage
+  and ETA rather than implying measurable completion.
+- MMDB validation work is explicitly labelled as processed CIDR ranges. The
+  incorrect trie-node-derived denominator introduced in 2.1.2 is removed: real
+  databases can yield more CIDR iterations than `nodeCount + 1`. Validation is
+  therefore indeterminate and shows no percentage or ETA, avoiding a second scan.
+
 ## [2.2.0] - 2026-10-04
 
 ### Added
@@ -34,7 +51,8 @@ Git tag; these notes do not by themselves indicate that a release was published.
 
 - Local and candidate MMDB validation now reports its exact CIDR-range total from
   the binary search-tree leaf count, enabling percentage and smoothed phase ETA
-  without a second validation pass.
+  without a second validation pass. This assumption was corrected in 2.2.1 after
+  real databases demonstrated that SDK traversal iterations can exceed that value.
 - Human elapsed, phase-ETA, wait/timeout and total-duration values over 60 seconds
   are rendered as minutes plus seconds in English and Hungarian. Machine-readable
   JSON and numeric progress snapshots remain unchanged.

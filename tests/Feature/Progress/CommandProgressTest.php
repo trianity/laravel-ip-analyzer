@@ -34,7 +34,7 @@ it('keeps JSON stdout clean and routes explicit progress only to stderr', functi
     expect(Artisan::call('ip-data:update', ['--check' => true, '--json' => true, '--progress' => $progress], $output))->toBe(0);
     expect(json_decode(progressText($out), true, flags: JSON_THROW_ON_ERROR)['results'])->toHaveCount(2);
     if ($progress) {
-        expect(progressText($err))->toContain('Ország', 'ASN', 'Teljes futási idő');
+        expect(progressText($err))->toContain('Ország', 'ASN', 'Teljes futási idő')->not->toContain("\033", "\r");
     } else {
         expect(progressText($err))->toBe('');
     }

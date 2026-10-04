@@ -36,8 +36,8 @@ it('uses current locale on a retained adapter and substitutes placeholders', fun
     expect($messages->get('progress.elapsed', ['elapsed' => '1.5']))->toBe('Eltelt: 1.5 s');
     app()->setLocale('en');
     expect($messages->get('progress.elapsed', ['elapsed' => '1.5']))->toBe('Elapsed: 1.5 s')
-        ->and($messages->choice('progress.ranges', 1))->toBe('1 range')
-        ->and($messages->choice('progress.ranges', 2))->toBe('2 ranges');
+        ->and($messages->choice('progress.ranges', 1))->toBe('1 CIDR range')
+        ->and($messages->choice('progress.ranges', 2))->toBe('2 CIDR ranges');
 });
 
 it('ships identical English Hungarian keys and placeholder sets', function () {

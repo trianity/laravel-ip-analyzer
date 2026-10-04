@@ -116,14 +116,15 @@ php artisan ip-data:update
 php artisan ip-data:update --database=asn --json
 ```
 
-A 2.1-es verzió human módban alapból jelzi a munkafázist, az aktuális Country/ASN
-adatbázist és az eltelt időt. A teljes helyi integritásvizsgálat `--check` mellett
-is több percig tarthat. A 2.1.2-es verziótól a feldolgozott CIDR-tartományok valós
-számlálója mellett az MMDB bináris keresőfájának pontos levélszáma adja a teljes
-mennyiséget, ezért második bejárás nélkül százalék és simított fázis-ETA is készül.
-A hash és az ismert méretű letöltés bájtalapú százalékot és elegendő minta után
-simított fázis-ETA-t ad. A 60 másodpercnél hosszabb human időértékek perc és
-másodperc formában jelennek meg; a JSON-kimenet változatlan.
+A human mód alapból jelzi a munkafázist, az aktuális Country/ASN adatbázist és az
+eltelt időt. A teljes helyi integritásvizsgálat `--check` mellett is több percig
+tarthat. A validálás a ténylegesen feldolgozott CIDR-tartományok számát mutatja.
+Valós adatbázisok igazolták, hogy a metaadat `nodeCount + 1` értéke nem az SDK
+bejárási iterációinak teljes száma, ezért a 2.2.1 eltávolítja ezt a hibás nevezőt.
+A validálás határozatlan progress: százalék és ETA nélkül jelenik meg, és nem fut
+miatta második teljes bejárás. A hash és az ismert méretű letöltés továbbra is
+bájttal, százalékkal és elegendő minta után simított ETA-val dolgozik. Az eltelt idő
+egész másodperces, az ETA közelítő másodperc vagy perc; a JSON-kimenet változatlan.
 
 - `--no-progress`: csak a végső human eredmény és teljes futási idő.
 - `--json`: egyetlen végső JSON a STDOUT-on, folyamatjelzés nélkül.
@@ -131,7 +132,13 @@ másodperc formában jelennek meg; a JSON-kimenet változatlan.
 - `--quiet`: minden kimenetet elnyom, a kifejezetten kért progress-t is.
 
 A `--no-progress` elsőbbséget élvez a `--progress` kapcsolóval szemben.
-Nem TTY kimenetnél ritkított, külön soros jelzés készül, ANSI vezérlés nélkül.
+Interaktív, ANSI-képes terminálon adatbázisonként egy stabil sor marad Country/ASN
+sorrendben. A blokk legfeljebb másodpercenként frissül; a fázisváltás, befejezés,
+hiba és megszakítás azonnali. Keskeny terminálon a sorok a terminálszélességre
+rövidülnek. Átirányított, CI, nem támogatott vagy `--no-ansi` kimenetnél ANSI
+nélküli külön sorok készülnek, adatbázisonként legfeljebb 15 másodpercenként;
+a kezdeti, fázisváltási és végállapotok itt is azonnaliak. A képességvizsgálat a
+progress tényleges streamjén történik, ezért JSON progress esetén a STDERR számít.
 Opcionális PCNTL-támogatással a Ctrl-C ellenőrzött megszakítást kér: 130-as kilépés,
 reader/staging/lock takarítás. Blokkoló hívásnál ez a következő ellenőrzési pontig
 várhat; a megkezdett atomikus telepítés és state-mentés befejeződik. A korábban már

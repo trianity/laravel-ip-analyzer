@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.2.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.2.1** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -14,10 +14,10 @@ empty match list does not certify safety.
 ## Installation and use
 
 Requirements: PHP 8.4 or 8.5, Laravel 12 or 13, and the PHP cURL and zlib extensions.
-Install the published 2.1 release:
+For the 2.2 release series:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:^2.1
+composer require trianity/laravel-ip-analyzer:^2.2
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
@@ -247,22 +247,35 @@ php artisan ip-data:update --json --progress     # progress and duration on STDE
 ```
 
 `--quiet` suppresses all output, including explicit `--progress`.
-`--no-progress` takes precedence over `--progress`. Non-TTY output uses separate
-lines without ANSI cursor control; terminal detection uses the selected output
-channel. Human output includes a final total duration; the JSON result schema is
+`--no-progress` takes precedence over `--progress`. Since 2.2.1, an interactive
+ANSI terminal keeps one stable row per selected database in Country/ASN order.
+The compact block refreshes at most once per second, except that phase transitions,
+completion, failure and cancellation are immediate. Rows are truncated to the
+detected terminal width and completed rows remain visible while other work runs.
+Capability detection uses the stream that receives progress, including STDERR for
+`--json --progress`; the whole terminal is never cleared.
+
+Redirected output, CI, unsupported output implementations and `--no-ansi` use
+plain lines without cursor controls. Periodic events are limited to one line every
+15 seconds per database; initial state, phase changes and terminal states remain
+immediate. Human output includes a final total duration; the JSON result schema is
 unchanged. Use `--json` for machine parsing.
 
-Since 2.1.2, record traversal reports actual processed CIDR ranges against the
-exact leaf count of the MMDB binary search tree. This enables a percentage and
-phase ETA without a second record-counting pass. Hashing and downloads use bytes
-when total size is known. Missing Content-Length means no download percentage or
-ETA. Phase ETA uses a monotonic clock and smoothed speed, starts only after at
-least one second and two samples, and becomes unknown during a stall. It is not
-an estimate for the whole command. Human durations over 60 seconds use minutes
-plus seconds; JSON and numeric snapshots are unchanged. Samples are limited to
-four per second; non-TTY output updates at most every five seconds within a phase.
-Phase changes and completion bypass throttling. `--check` never shows download,
-extraction or installation as performed phases.
+MMDB validation reports the actual number of processed CIDR ranges. Real database
+traversal proved that metadata `nodeCount + 1` is not a valid total for the SDK's
+CIDR iterations: the counter can exceed that value. Since 2.2.1 validation is
+therefore deliberately indeterminate, showing the processed count without a
+percentage or ETA. It does not perform a second full scan merely to obtain a total.
+
+Hashing and downloads use bytes when total size is known. Missing Content-Length
+means no download percentage or ETA. Phase ETA uses a monotonic clock and smoothed
+speed, starts only after at least one second and two samples, and becomes unknown
+during a stall. It is not an estimate for the whole command. Since 2.2.1, elapsed
+time has whole-second precision and ETA is shown as approximate rounded seconds
+below one minute or rounded minutes thereafter. JSON and numeric snapshots are
+unchanged. Progress collection remains independent of rendering and does not add
+sleeps to update supervision. `--check` never shows download, extraction or
+installation as performed phases.
 
 Where optional PHP PCNTL signal handling is available, Ctrl-C requests cooperative
 cancellation, reports interruption and exits 130. Readers, staging files and owned
@@ -273,8 +286,9 @@ a previously completed database is not rolled back. Inspect status and rerun to
 reconcile an interrupted command; its JSON error does not claim overall success.
 No cleanup guarantee is made for SIGKILL. PCNTL is not a package requirement.
 
-See [2.1 verification](docs/VERIFICATION-2.1.md) and the
-[2.1.2 ETA verification](docs/VERIFICATION-2.1.2.md) for tests and platform limits.
+See [2.1 verification](docs/VERIFICATION-2.1.md), the
+[2.1.2 ETA verification](docs/VERIFICATION-2.1.2.md), and the
+[2.2.1 compact-progress verification](docs/VERIFICATION-2.2.1.md).
 
 ## Parallel local validation (2.2)
 
@@ -351,9 +365,10 @@ also applies when English is selected as fallback. Preserve the placeholders of
 the overridden key; for example `progress.elapsed` uses `:elapsed` and
 `progress.summary` uses `:status` and `:elapsed`. Their over-60-second counterparts
 are `progress.elapsed_minutes` (`:minutes`, `:seconds`) and
-`progress.summary_minutes` (`:status`, `:minutes`, `:seconds`); ETA and wait keys
-follow the same `_minutes` convention. Counted range/byte messages use Laravel
-pluralization. Keep overrides in the host application, not in `vendor/`.
+`progress.summary_minutes` (`:status`, `:minutes`, `:seconds`). The compact ETA
+keys use `:remaining` for seconds and `:minutes` for minutes; wait keys retain the
+duration placeholders. Counted CIDR-range/byte messages use Laravel pluralization.
+Keep overrides in the host application, not in `vendor/`.
 
 Progress, summaries, status labels, sanitized errors/warnings and package command
 descriptions are localized. Human results include localized source labels followed

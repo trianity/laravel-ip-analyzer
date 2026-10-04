@@ -268,12 +268,20 @@ removes phase messages but keeps the final human summary. `--json` alone emits
 exactly one JSON document without progress or a timing field; `--json --progress`
 sends all phase messages and the timing summary exclusively to STDERR.
 `--quiet` overrides explicit progress, and `--no-progress` overrides `--progress`.
-Non-TTY progress uses throttled separate lines without ANSI cursor controls.
+Interactive ANSI terminals keep a stable Country/ASN block, refreshed at most
+once per second except for immediate phase and terminal transitions. Redirected,
+CI, unsupported and `--no-ansi` streams use separate lines without cursor controls,
+with periodic output limited to once every 15 seconds per database. Detection is
+performed on the actual progress stream (STDERR for `--json --progress`).
 Since 2.1.1, human labels use the current Laravel locale (`en`/`hu`) with explicit
 English fallback. See [localization and overrides](../README.md#language-and-application-overrides-211).
-Since 2.1.2, full MMDB traversal has an exact range total and can produce a
-smoothed phase ETA without a second pass. Human time values over 60 seconds use
-minutes plus seconds; JSON fields and numeric values are unchanged.
+Full MMDB traversal reports processed CIDR ranges. Real databases proved that
+metadata `nodeCount + 1` is not the total number of SDK traversal iterations, so
+2.2.1 removes that incorrect denominator. Validation progress is indeterminate:
+it has no percentage or ETA, and no second pass is made to manufacture a total.
+Known-size byte phases retain percentage and smoothed ETA. Normal elapsed display
+uses whole seconds and ETA uses approximate rounded seconds/minutes. JSON fields
+and numeric snapshots are unchanged.
 JSON, including existing message fields, remains locale-independent.
 See [progress, ETA and interruption behavior](../README.md#update-progress-21).
 Since 2.2, Country and ASN local validation can run in at most two separate PHP

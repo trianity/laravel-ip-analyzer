@@ -15,11 +15,12 @@ it('renders localized phases and summaries with a retained reporter', function (
     $reporter = new UpdateProgress($output);
     $reporter->report(new Snapshot(Phase::LocalValidation, Database::Country, 1, null, 2, null, finished: true));
     $reporter->finish(0, 2);
-    expect($output->fetch())->toContain('Ország', 'Helyi MMDB', '1 tartomány', 'Teljes futási idő: 2.0 s');
+    expect($output->fetch())->toContain('Ország', 'Helyi MMDB', '1 CIDR-tartomány', 'Teljes futási idő: 2 s');
     app()->setLocale('en');
+    $reporter = new UpdateProgress($output);
     $reporter->report(new Snapshot(Phase::LocalValidation, Database::Country, 2, null, 3, null, finished: true));
     $reporter->finish(130, 3);
-    expect($output->fetch())->toContain('Country', 'Local MMDB', '2 ranges', 'Interrupted', 'Total duration: 3.0 s');
+    expect($output->fetch())->toContain('Country', 'Local MMDB', '2 CIDR ranges', 'Interrupted', 'Total duration: 3 s');
 });
 
 it('localizes only stderr when JSON progress is requested', function ($locale, $expected) {
@@ -141,7 +142,7 @@ it('localizes byte amounts phase ETA wait time and all machine phases', function
     $output = new BufferedOutput;
     $reporter = new UpdateProgress($output);
     $reporter->report(new Snapshot(Phase::Download, Database::Asn, 100, 200, 1.5, 2.5, 120, true));
-    expect($output->fetch())->toContain('ASN', 'Downloading', '100 bytes / 200 (50.0%)', 'Elapsed: 1.5 s', 'Phase remaining time: 2.5 s', 'Wait/timeout: 2 min 0 s');
+    expect($output->fetch())->toContain('ASN', 'Downloading', '100 bytes / 200 (50%)', 'Elapsed: 2 s', 'Remaining: ~3 s', 'Wait/timeout: 2 min 0 s');
     foreach (Phase::cases() as $phase) {
         expect($phase->value)->toMatch('/^[a-z_]+$/D');
         foreach (['en', 'hu'] as $locale) {
