@@ -47,6 +47,8 @@ own directory or edit files under `vendor/`:
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
+IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
 Publish the host configuration if it does not exist:
@@ -58,6 +60,10 @@ php artisan vendor:publish --tag=ip-analyzer-config
 In the host application's `config/ip-analyzer.php`, the relevant section is:
 
 ```php
+'validation' => [
+    'workers' => env('IP_ANALYZER_VALIDATION_WORKERS', 1),
+    'worker_timeout' => env('IP_ANALYZER_VALIDATION_WORKER_TIMEOUT', 1800),
+],
 'update' => [
     'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
     'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
@@ -68,7 +74,9 @@ In the host application's `config/ip-analyzer.php`, the relevant section is:
 This is a section of the returned config array, not a replacement for the whole
 file. Keep existing paths, rules and update overrides. Omitted updater options
 receive package defaults; the published V2 config includes those defaults too.
-The consuming application reads these settings as `ip-analyzer.update.*`.
+The consuming application reads update settings as `ip-analyzer.update.*` and
+validation settings as `ip-analyzer.validation.*`. The CLI `--workers` value
+overrides the configured worker count for one invocation.
 For a cached deployment, rebuild with `php artisan config:cache` after changes.
 
 No credentials are accepted as command options. Environment variables are read
@@ -100,10 +108,12 @@ through `update.allowed_hosts`; no wildcard or automatic trust expansion occurs.
 Authentication does not expand with this allowlist. Permit DNS and outbound
 HTTPS/443 to the configured hosts. No live account access is required by CI.
 
-The direct dependencies are Guzzle plus PSR-7/HTTP Message, the MaxMind reader and
-PHP cURL/zlib. The explicit cURL handler supports separate connect/total timeouts
-and writes through a bounded sink. Automatic HTTP content decoding is disabled,
-so archive gzip decoding is an independent, validated step.
+The direct dependencies are Guzzle plus PSR-7/HTTP Message, the MaxMind reader,
+Illuminate Config and Symfony Process, plus PHP cURL/zlib. The explicit cURL
+handler supports separate connect/total timeouts and writes through a bounded
+sink. Automatic HTTP content decoding is disabled, so archive gzip decoding is an
+independent, validated step. Symfony Process is used only for opt-in local
+validation workers.
 
 | update option | Default | Meaning |
 | --- | --- | --- |
@@ -120,6 +130,13 @@ so archive gzip decoding is an independent, validated step.
 | lock_timeout | 0 | Seconds to wait for a target lock; 0 means immediate busy |
 | cleanup_age | 86400 | Minimum age for cleanup of abandoned owned staging |
 | schedule_enabled | false | Switch for the application scheduler example |
+
+Validation has a separate, cached-config-safe section:
+
+| validation option | Default | Meaning |
+| --- | --- | --- |
+| workers | 1 | Positive worker limit; CLI `--workers` has precedence |
+| worker_timeout | 1800 | Positive timeout in seconds for each subprocess |
 
 Options are validated integers with finite upper bounds; booleans must be booleans.
 No option disables TLS or unlimited-download protection. Limits cover received
@@ -239,6 +256,7 @@ filesystem or sudden-power-loss durability guarantee is made.
 php artisan ip-data:update
 php artisan ip-data:update --database=country --database=asn --json
 php artisan ip-data:update --check --json
+php artisan ip-data:update --check --workers=2
 php artisan ip-data:update --force
 ```
 
@@ -258,6 +276,12 @@ smoothed phase ETA without a second pass. Human time values over 60 seconds use
 minutes plus seconds; JSON fields and numeric values are unchanged.
 JSON, including existing message fields, remains locale-independent.
 See [progress, ETA and interruption behavior](../README.md#update-progress-21).
+Since 2.2, Country and ASN local validation can run in at most two separate PHP
+processes with `--workers=2`. One task or one worker remains in-process. The main
+process retains locks and all network/install/state work. Startup capability
+failure falls back before validation; a started worker failure or timeout does not.
+Parallel operation can use more memory and storage I/O and may not be faster on
+every system. See [parallel validation](../README.md#parallel-local-validation-22).
  Per-target fields include database, status, oldBuildEpoch,
 newBuildEpoch, errorCode, warning, nextRetryAt (Unix seconds), and installed.
 

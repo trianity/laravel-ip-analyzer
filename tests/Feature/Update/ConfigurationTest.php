@@ -2,10 +2,13 @@
 
 use Trianity\IpAnalyzer\Contracts\IpLookup;
 use Trianity\IpAnalyzer\Update\UpdateOptions;
+use Trianity\IpAnalyzer\Update\ValidationOptions;
 
 it('keeps offline use credential-free and supplies update defaults to old config', function () {
     config(['ip-analyzer.update' => []]);
     expect(app(UpdateOptions::class)->integer('max_redirects'))->toBe(3);
+    expect(app(ValidationOptions::class)->workers())->toBe(1)
+        ->and(app(ValidationOptions::class)->timeout())->toBe(1800);
     expect(app(IpLookup::class)->lookup('127.0.0.1')->countryStatus->value)->toBe('non_public');
     expect(fn () => app(UpdateOptions::class)->credentials())->toThrow(InvalidArgumentException::class);
 });
@@ -53,6 +56,8 @@ it('supports a published V1 configuration through config cache', function () {
         $this->refreshApplication();
         expect(app()->configurationIsCached())->toBeTrue()
             ->and(app(UpdateOptions::class)->integer('timeout'))->toBe(120)
+            ->and(app(ValidationOptions::class)->workers())->toBe(1)
+            ->and(app(ValidationOptions::class)->timeout())->toBe(1800)
             ->and(app(IpLookup::class)->lookup('127.0.0.1')->countryStatus->value)->toBe('non_public');
     } finally {
         $this->artisan('config:clear')->assertSuccessful();

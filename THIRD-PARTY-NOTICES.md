@@ -39,3 +39,7 @@ no external archive package or shell extraction tool is used.
 Only the explicit updater uses a network client. Local lookup still uses the
 GeoIp2 database reader exclusively. Archive LICENSE/COPYRIGHT/README contents
 are preserved separately beside the installed data and retain their own terms.
+
+Version 2.2 directly declares Symfony Process and Illuminate Config, both MIT.
+Symfony Process starts and supervises the optional local validation subprocesses;
+it does not broaden which operations may access the network.

@@ -18,6 +18,10 @@ return [
     ],
     // Ordered list of Rule class names, resolved through the Laravel container.
     'custom_rules' => [],
+    'validation' => [
+        'workers' => env('IP_ANALYZER_VALIDATION_WORKERS', 1),
+        'worker_timeout' => env('IP_ANALYZER_VALIDATION_WORKER_TIMEOUT', 1800),
+    ],
     // Only the explicit update command uses these credentials and network settings.
     'update' => [
         ...UpdateOptions::defaults(),

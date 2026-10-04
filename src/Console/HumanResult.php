@@ -58,6 +58,9 @@ final class HumanResult
         if (preg_match('/^Invalid update option: ([a-z_]+)\.$/D', $message, $match) && array_key_exists($match[1], UpdateOptions::defaults())) {
             return $this->messages->get('configuration.option', ['option' => $match[1]]);
         }
+        if (preg_match('/^Invalid validation option: (workers|worker_timeout)\.$/D', $message, $match)) {
+            return $this->messages->get('configuration.validation_option', ['option' => $match[1]]);
+        }
 
         return $this->messages->get('configuration.'.$key);
     }

@@ -4,6 +4,30 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.2.0] - 2026-10-04
+
+### Added
+
+- Opt-in Country/ASN local validation in separate Symfony Process workers for
+  the update check, with a CLI worker override, cached-config-safe environment
+  settings and an explicit per-worker timeout.
+- Bounded NDJSON worker IPC with incremental progress, deterministic results,
+  protocol validation, timeout/crash handling, startup fallback and cooperative
+  child-process cleanup on interruption.
+- Offline real-subprocess and controlled process-runner regressions covering
+  concurrency, ordering, IPC chunking, failures, locks and output routing.
+
+### Changed
+
+- Local and candidate validation share a task/scheduler abstraction. One worker,
+  one available task and normal single-candidate update validation remain direct
+  in-process execution.
+- The main process retains database locks and all HEAD/download/extract/install/state
+  responsibilities. Parallel workers receive only explicit local validation data;
+  credentials and application container state are not serialized.
+- Declare Symfony Process and Illuminate Config as direct MIT dependencies. No new
+  PHP extension is required.
+
 ## [2.1.2] - 2026-10-04
 
 ### Changed

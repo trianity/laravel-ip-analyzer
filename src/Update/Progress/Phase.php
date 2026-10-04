@@ -9,6 +9,11 @@ enum Phase: string
 {
     case Configuration = 'configuration';
     case Lock = 'lock';
+    case ValidationWaiting = 'validation_waiting';
+    case ValidationRunning = 'validation_running';
+    case ValidationComplete = 'validation_complete';
+    case ValidationFailed = 'validation_failed';
+    case SequentialFallback = 'sequential_fallback';
     case LocalValidation = 'local_validation';
     case Hash = 'hash';
     case Head = 'head';

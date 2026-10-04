@@ -71,11 +71,18 @@ könyvtárában. Az alábbiak kizárólag helyőrzők:
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
+IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
-A host alkalmazás `config/ip-analyzer.php` fájljának `update` része olvassa ezeket:
+A host alkalmazás `config/ip-analyzer.php` fájljának validálási és update
+része olvassa ezeket:
 
 ```php
+'validation' => [
+    'workers' => env('IP_ANALYZER_VALIDATION_WORKERS', 1),
+    'worker_timeout' => env('IP_ANALYZER_VALIDATION_WORKER_TIMEOUT', 1800),
+],
 'update' => [
     'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
     'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
@@ -104,6 +111,7 @@ ugyanúgy védd, mint az alkalmazás többi titkos konfigurációját.
 
 ```sh
 php artisan ip-data:update --check --json
+php artisan ip-data:update --check --workers=2
 php artisan ip-data:update
 php artisan ip-data:update --database=asn --json
 ```
@@ -129,6 +137,21 @@ reader/staging/lock takarítás. Blokkoló hívásnál ez a következő ellenőr
 várhat; a megkezdett atomikus telepítés és state-mentés befejeződik. A korábban már
 telepített adatbázist nem vonja vissza. Megszakítás után ellenőrizd a státuszt;
 SIGKILL-re nincs takarítási garancia. Új kötelező PHP-extension nem szükséges.
+
+A 2.2-es verzióban a Country és ASN teljes helyi ellenőrzése külön PHP-folyamatban,
+párhuzamosan is futhat. Alapból egy worker van, ezért a korábbi szekvenciális,
+subprocessz nélküli működés marad. A `--workers=2` felülírja a konfigurációt;
+egy kiválasztott adatbázis legfeljebb egy, Country + ASN legfeljebb két hasznos
+workert ad. Nincs automatikus CPU-magszám-felderítés.
+
+A workerek kizárólag helyi MMDB-validálást és hash-számítást végeznek. A lock,
+HEAD/letöltés, kicsomagolás, telepítés és state-írás a főfolyamatban marad, és
+credential nem kerül a worker argumentumaiba vagy IPC-jébe. A worker timeout
+alapértéke 1800 másodperc. Indulás előtti környezeti alkalmatlanságnál lokalizált
+jelzés után szekvenciális futás következik; már elindult worker hibája vagy timeoutja
+nem kap rejtett újrapróbálást. Két worker nagyobb memória- és I/O-terhelést okozhat,
+és a gyorsulás nem minden gépen garantált. Az env módosítása után építsd újra a
+config cache-t.
 
 A `--check` csak helyi vizsgálatot és HEAD-et végez. A `--force` új GET-et kérhet,
 de nem kapcsolja ki a validációt, a régebbi build tiltását vagy a cooldown-t.

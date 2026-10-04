@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.1.2** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.2.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -190,6 +190,8 @@ Use a License Key, not your account login password. Put the values in the
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
 IP_ANALYZER_UPDATE_SCHEDULE=false
+IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
 The host application's `config/ip-analyzer.php` maps these environment variables
@@ -206,6 +208,7 @@ is **not supported** by this package.
 
 ```sh
 php artisan ip-data:update --check --json
+php artisan ip-data:update --check --workers=2
 php artisan ip-data:update
 php artisan ip-data:update --database=country
 php artisan ip-data:update --force --json
@@ -272,6 +275,43 @@ No cleanup guarantee is made for SIGKILL. PCNTL is not a package requirement.
 
 See [2.1 verification](docs/VERIFICATION-2.1.md) and the
 [2.1.2 ETA verification](docs/VERIFICATION-2.1.2.md) for tests and platform limits.
+
+## Parallel local validation (2.2)
+
+Parallel validation is opt-in and primarily benefits a full Country + ASN check:
+
+    php artisan ip-data:update --check --workers=2
+    php artisan ip-data:update --check --workers=1 --json
+    php artisan ip-data:update --database=country --check --workers=2
+
+Priority is the CLI workers option over ip-analyzer.validation.workers, whose
+default is 1. Effective concurrency is bounded by available tasks: Country + ASN
+can use at most two workers, while one selected database always runs directly in
+the main process. A value of 1 starts no subprocess. There is no CPU-count
+autodetection.
+
+Each worker performs one complete local MMDB traversal and hash using the same
+validator as sequential execution. It cannot perform HTTP, extraction, installation
+or state writes. The main process owns target locks, checks that the validated file
+was not replaced, performs HEAD requests and preserves deterministic requested
+result order. Worker IPC is bounded internal NDJSON and is not part of the public
+JSON schema; credentials are never passed to workers.
+
+The ip-analyzer.validation.worker_timeout setting defaults to 1800 seconds. If
+proc_open, a readable Composer autoloader or a usable PHP CLI executable is
+unavailable before startup, the command reports a localized notice in progress
+mode and runs sequentially. A started worker crash, invalid protocol or timeout is
+a failure and is not silently retried. Supported Ctrl-C handling stops active
+children before returning exit 130; portable signal handling and SIGKILL cleanup
+are not promised. Subprocess termination and file-identity protection are verified
+on local Linux filesystems; Windows and network/distributed filesystems are not
+certified by this release.
+
+Two workers may roughly double validation memory use and increase storage I/O.
+Speedup depends on CPU, filesystem/cache behavior and MMDB sizes and is not
+guaranteed. Download, HEAD, extraction, installation and state writes remain
+non-parallel. Rebuild Laravel's config cache after changing either environment
+setting. See [2.2 verification](docs/VERIFICATION-2.2.md).
 
 ## Language and application overrides (2.1.1)
 

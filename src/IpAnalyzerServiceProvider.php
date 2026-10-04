@@ -15,6 +15,10 @@ use Trianity\IpAnalyzer\Contracts\IpLookup;
 use Trianity\IpAnalyzer\Lookup\MaxMindIpLookup;
 use Trianity\IpAnalyzer\Support\PackageVersion;
 use Trianity\IpAnalyzer\Update\GuzzleTransport;
+use Trianity\IpAnalyzer\Update\Parallel\ParallelValidationExecutor;
+use Trianity\IpAnalyzer\Update\Parallel\ParallelValidationExecutorContract;
+use Trianity\IpAnalyzer\Update\Parallel\SymfonyWorkerProcessFactory;
+use Trianity\IpAnalyzer\Update\Parallel\WorkerProcessFactory;
 use Trianity\IpAnalyzer\Update\Progress\Progress;
 use Trianity\IpAnalyzer\Update\Transport;
 
@@ -24,6 +28,8 @@ final class IpAnalyzerServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/ip-analyzer.php', 'ip-analyzer');
         $this->app->singleton(Progress::class);
+        $this->app->bind(WorkerProcessFactory::class, SymfonyWorkerProcessFactory::class);
+        $this->app->bind(ParallelValidationExecutorContract::class, ParallelValidationExecutor::class);
         $this->app->bind(Transport::class, fn ($app) => new GuzzleTransport(progress: $app->make(Progress::class)));
         $this->app->bind(IpLookup::class, MaxMindIpLookup::class);
         $this->app->bind(IpAnalyzer::class, LocalIpAnalyzer::class);

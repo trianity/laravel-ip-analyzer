@@ -19,7 +19,7 @@ use Trianity\IpAnalyzer\Update\UpdateConfigurationException;
 
 final class UpdateCommand extends DataCommand
 {
-    protected $signature = 'ip-data:update {--database=*} {--force} {--check} {--json} {--progress} {--no-progress}';
+    protected $signature = 'ip-data:update {--database=*} {--force} {--check} {--workers=} {--json} {--progress} {--no-progress}';
 
     public function handle(): int
     {
@@ -40,7 +40,12 @@ final class UpdateCommand extends DataCommand
         $signals->install($progress);
         try {
             $progress->start(Phase::Configuration);
-            $results = $this->laravel->make(DatabaseUpdater::class)->run($this->option('database'), $this->option('force'), $this->option('check'));
+            $results = $this->laravel->make(DatabaseUpdater::class)->run(
+                $this->option('database'),
+                $this->option('force'),
+                $this->option('check'),
+                $this->option('workers'),
+            );
             $progress->checkpoint();
             $reporter?->endLine();
             $failed = count(array_filter($results, fn ($result) => $result->status === 'failed'));

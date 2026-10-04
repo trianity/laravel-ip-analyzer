@@ -54,6 +54,15 @@ final class Progress
         }
     }
 
+    public function relay(Snapshot $snapshot): void
+    {
+        $this->checkpoint();
+        if ($this->enabled) {
+            $this->observer->report($snapshot);
+        }
+        $this->checkpoint();
+    }
+
     public function start(Phase $phase, ?string $database = null, ?int $total = null, ?int $waitSeconds = null): void
     {
         $this->checkpoint();
