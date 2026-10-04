@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.1.1** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.1.2** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -249,13 +249,15 @@ lines without ANSI cursor control; terminal detection uses the selected output
 channel. Human output includes a final total duration; the JSON result schema is
 unchanged. Use `--json` for machine parsing.
 
-Record traversal reports actual processed CIDR ranges with unknown total and ETA;
-metadata nodeCount is not a compatible denominator. Hashing and downloads can
-show byte percentages when total size is known. Missing Content-Length means no
-download percentage or ETA. Phase ETA uses a monotonic clock and smoothed speed,
-starts only after at least one second and two samples, and becomes unknown during
-a stall. It is not an estimate for the whole command. Samples are limited to four
-per second; non-TTY output updates at most every five seconds within a phase.
+Since 2.1.2, record traversal reports actual processed CIDR ranges against the
+exact leaf count of the MMDB binary search tree. This enables a percentage and
+phase ETA without a second record-counting pass. Hashing and downloads use bytes
+when total size is known. Missing Content-Length means no download percentage or
+ETA. Phase ETA uses a monotonic clock and smoothed speed, starts only after at
+least one second and two samples, and becomes unknown during a stall. It is not
+an estimate for the whole command. Human durations over 60 seconds use minutes
+plus seconds; JSON and numeric snapshots are unchanged. Samples are limited to
+four per second; non-TTY output updates at most every five seconds within a phase.
 Phase changes and completion bypass throttling. `--check` never shows download,
 extraction or installation as performed phases.
 
@@ -268,7 +270,8 @@ a previously completed database is not rolled back. Inspect status and rerun to
 reconcile an interrupted command; its JSON error does not claim overall success.
 No cleanup guarantee is made for SIGKILL. PCNTL is not a package requirement.
 
-See [2.1 verification](docs/VERIFICATION-2.1.md) for tests and platform limits.
+See [2.1 verification](docs/VERIFICATION-2.1.md) and the
+[2.1.2 ETA verification](docs/VERIFICATION-2.1.2.md) for tests and platform limits.
 
 ## Language and application overrides (2.1.1)
 
@@ -306,8 +309,11 @@ return [
 Omitted keys retain package translations. An equivalent `en/messages.php` override
 also applies when English is selected as fallback. Preserve the placeholders of
 the overridden key; for example `progress.elapsed` uses `:elapsed` and
-`progress.summary` uses `:status` and `:elapsed`. Counted range/byte messages use
-Laravel pluralization. Keep overrides in the host application, not in `vendor/`.
+`progress.summary` uses `:status` and `:elapsed`. Their over-60-second counterparts
+are `progress.elapsed_minutes` (`:minutes`, `:seconds`) and
+`progress.summary_minutes` (`:status`, `:minutes`, `:seconds`); ETA and wait keys
+follow the same `_minutes` convention. Counted range/byte messages use Laravel
+pluralization. Keep overrides in the host application, not in `vendor/`.
 
 Progress, summaries, status labels, sanitized errors/warnings and package command
 descriptions are localized. Human results include localized source labels followed

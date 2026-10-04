@@ -1,5 +1,9 @@
 # 2.1 verification — 2026-10-04
 
+> This records the original 2.1.0 behavior. Version 2.1.2 subsequently proved the
+> MMDB binary-tree leaf total and added validation percentage/ETA without a second
+> pass; see [VERIFICATION-2.1.2.md](VERIFICATION-2.1.2.md).
+
 Release: 2.1.0 — 2026-10-04.
 
 Scope: `.idea/Refactor_01.md`, progress for the explicit updater. No validation

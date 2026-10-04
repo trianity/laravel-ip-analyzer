@@ -38,6 +38,10 @@ final class CandidateValidator
                     || ! in_array($raw->recordSize, [24, 28, 32], true) || $raw->nodeCount <= 0) {
                     throw new UpdateFailure('invalid_database');
                 }
+                // Every internal node in the MMDB binary search tree has two
+                // branches, so its complete traversal has nodeCount + 1 leaves.
+                // Each getWithPrefixLen() iteration below consumes one such leaf.
+                $total = $raw->nodeCount + 1;
                 $address = str_repeat("\0", $raw->ipVersion === 4 ? 4 : 16);
                 $bits = strlen($address) * 8;
                 $count = 0;
@@ -54,7 +58,7 @@ final class CandidateValidator
                         $this->record($source, $record);
                     }
                     if ($count % 256 === 0) {
-                        $this->progress->advance($count);
+                        $this->progress->advance($count, $total);
                     }
                     // Walk disjoint CIDR ranges using the SDK's prefix lengths. No live IP facts.
                     if ($prefix === 0) {
@@ -69,7 +73,7 @@ final class CandidateValidator
                         $index--;
                     }
                 } while ($carry === 0);
-                $this->progress->advance($count, force: true);
+                $this->progress->advance($count, $total, force: true);
             } finally {
                 $reader->close();
             }

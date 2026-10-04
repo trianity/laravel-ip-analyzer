@@ -141,7 +141,7 @@ it('localizes byte amounts phase ETA wait time and all machine phases', function
     $output = new BufferedOutput;
     $reporter = new UpdateProgress($output);
     $reporter->report(new Snapshot(Phase::Download, Database::Asn, 100, 200, 1.5, 2.5, 120, true));
-    expect($output->fetch())->toContain('ASN', 'Downloading', '100 bytes / 200 (50.0%)', 'Elapsed: 1.5 s', 'Phase remaining time: 2.5 s', 'Wait/timeout: 120 s');
+    expect($output->fetch())->toContain('ASN', 'Downloading', '100 bytes / 200 (50.0%)', 'Elapsed: 1.5 s', 'Phase remaining time: 2.5 s', 'Wait/timeout: 2 min 0 s');
     foreach (Phase::cases() as $phase) {
         expect($phase->value)->toMatch('/^[a-z_]+$/D');
         foreach (['en', 'hu'] as $locale) {

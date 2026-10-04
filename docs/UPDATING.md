@@ -253,6 +253,9 @@ sends all phase messages and the timing summary exclusively to STDERR.
 Non-TTY progress uses throttled separate lines without ANSI cursor controls.
 Since 2.1.1, human labels use the current Laravel locale (`en`/`hu`) with explicit
 English fallback. See [localization and overrides](../README.md#language-and-application-overrides-211).
+Since 2.1.2, full MMDB traversal has an exact range total and can produce a
+smoothed phase ETA without a second pass. Human time values over 60 seconds use
+minutes plus seconds; JSON fields and numeric values are unchanged.
 JSON, including existing message fields, remains locale-independent.
 See [progress, ETA and interruption behavior](../README.md#update-progress-21).
  Per-target fields include database, status, oldBuildEpoch,

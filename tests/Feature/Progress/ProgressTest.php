@@ -3,6 +3,7 @@
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\HandlerStack;
 use GuzzleHttp\Psr7\Response;
+use MaxMind\Db\Reader;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Trianity\IpAnalyzer\Console\UpdateProgress;
 use Trianity\IpAnalyzer\Update\CandidateValidator;
@@ -41,7 +42,7 @@ function progressHarness(): array
     return [$progress, $clock, $observer];
 }
 
-it('reports real counts without inventing a record total and throttles samples', function () {
+it('reports real counts without a total when none is known and throttles samples', function () {
     [$p, $clock, $o] = progressHarness();
     $p->start(Phase::LocalValidation, 'country');
     for ($i = 1; $i <= 100; $i++) {
@@ -80,7 +81,11 @@ it('reports validation before opening a file and hashes bytes without a second r
     $result = app(CandidateValidator::class)->validate('country', $path, app(UpdateOptions::class), false);
     expect($o->events[0]->phase)->toBe(Phase::LocalValidation)->and($o->events[0]->completed)->toBe(0);
     $ranges = array_values(array_filter($o->events, fn ($s) => $s->phase === Phase::LocalValidation));
-    expect(end($ranges)->completed)->toBeGreaterThan(0)->and(end($ranges)->total)->toBeNull();
+    $reader = new Reader($path);
+    $expectedRanges = $reader->metadata()->nodeCount + 1;
+    $reader->close();
+    expect(end($ranges)->completed)->toBe($expectedRanges)->and(end($ranges)->total)->toBe($expectedRanges)
+        ->and(end($ranges)->eta)->toBe(0.0);
     $last = end($o->events);
     expect($last->phase)->toBe(Phase::Hash)->and($last->completed)->toBe(filesize($path))->and($last->total)->toBe(filesize($path))
         ->and($result->sha256)->toBe(hash_file('sha256', $path));
@@ -120,7 +125,7 @@ it('cancels validation before opening the database and stops record traversal', 
         ->toThrow(Interrupted::class);
 });
 
-it('renders final unknown-size counts even for a short non-TTY phase', function () {
+it('renders final counts even for a short non-TTY phase', function () {
     app()->setLocale('hu');
     $output = new BufferedOutput;
     $reporter = new UpdateProgress($output);
@@ -129,6 +134,30 @@ it('renders final unknown-size counts even for a short non-TTY phase', function 
     $p->start(Phase::LocalValidation, 'country');
     $p->advance(42, force: true);
     expect($output->fetch())->toContain('42 tartomány', 'még nem becsülhető')->not->toContain('%');
+});
+
+it('formats every human duration over sixty seconds as minutes and seconds', function () {
+    app()->setLocale('hu');
+    $output = new BufferedOutput;
+    $reporter = new UpdateProgress($output);
+    $reporter->report(new Snapshot(Phase::Download, null, 50, 100, 1675.4, 125.2, 120));
+    $reporter->finish(0, 2396.1);
+
+    expect($output->fetch())->toContain(
+        'Eltelt: 27 perc 55.4 s',
+        'Fázis hátralévő ideje: 2 perc 5.2 s',
+        'Várakozás/timeout: 2 perc 0 s',
+        'Teljes futási idő: 39 perc 56.1 s',
+    );
+});
+
+it('keeps exactly sixty seconds in seconds and localizes longer durations', function () {
+    app()->setLocale('en');
+    $output = new BufferedOutput;
+    $reporter = new UpdateProgress($output);
+    $reporter->report(new Snapshot(Phase::Hash, null, 1, 2, 60.0, 60.1));
+
+    expect($output->fetch())->toContain('Elapsed: 60.0 s', 'Phase remaining time: 1 min 0.1 s');
 });
 
 it('does not sample the clock or allocate events for disabled progress', function () {

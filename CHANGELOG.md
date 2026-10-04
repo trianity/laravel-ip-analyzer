@@ -4,7 +4,18 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
-## [2.1.1] - Unreleased
+## [2.1.2] - 2026-10-04
+
+### Changed
+
+- Local and candidate MMDB validation now reports its exact CIDR-range total from
+  the binary search-tree leaf count, enabling percentage and smoothed phase ETA
+  without a second validation pass.
+- Human elapsed, phase-ETA, wait/timeout and total-duration values over 60 seconds
+  are rendered as minutes plus seconds in English and Hungarian. Machine-readable
+  JSON and numeric progress snapshots remain unchanged.
+
+## [2.1.1] - 2026-10-04
 
 ### Added
 

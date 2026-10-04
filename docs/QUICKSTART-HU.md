@@ -110,9 +110,12 @@ php artisan ip-data:update --database=asn --json
 
 A 2.1-es verzió human módban alapból jelzi a munkafázist, az aktuális Country/ASN
 adatbázist és az eltelt időt. A teljes helyi integritásvizsgálat `--check` mellett
-is több percig tarthat. A feldolgozott CIDR-tartományok száma valós számláló;
-ismert teljes darabszám nélkül százalék és ETA nem jelenik meg. A hash és az ismert
-méretű letöltés bájtalapú százalékot és elegendő minta után simított fázis-ETA-t ad.
+is több percig tarthat. A 2.1.2-es verziótól a feldolgozott CIDR-tartományok valós
+számlálója mellett az MMDB bináris keresőfájának pontos levélszáma adja a teljes
+mennyiséget, ezért második bejárás nélkül százalék és simított fázis-ETA is készül.
+A hash és az ismert méretű letöltés bájtalapú százalékot és elegendő minta után
+simított fázis-ETA-t ad. A 60 másodpercnél hosszabb human időértékek perc és
+másodperc formában jelennek meg; a JSON-kimenet változatlan.
 
 - `--no-progress`: csak a végső human eredmény és teljes futási idő.
 - `--json`: egyetlen végső JSON a STDOUT-on, folyamatjelzés nélkül.
@@ -194,7 +197,9 @@ return [
 A többi kulcs csomagfordítása megmarad. Az `en/messages.php` alkalmazásfelülírása
 az angol fallback esetén is érvényesül. A helyőrzőket tartsd meg: például
 `progress.elapsed` esetén `:elapsed`; `progress.summary` esetén `:status` és
-`:elapsed`. A számlálók Laravel-pluralizációt használnak.
+`:elapsed`. A 60 másodperc feletti változatok `_minutes` utótagú kulcsokat és
+`:minutes`, `:seconds` helyőrzőket használnak; a summary megtartja a `:status`
+helyőrzőt. A számlálók Laravel-pluralizációt használnak.
 
 A human státuszfeliratok, hibák és figyelmeztetések lokalizáltak. A gépi kódok és
 a saját szabályaid szabad szöveges üzenetei nem változnak. A `--json` kimenet teljes

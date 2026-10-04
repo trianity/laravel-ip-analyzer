@@ -60,11 +60,11 @@ final class UpdateProgress implements Observer
             }
             $parts[] = $amount;
         }
-        $parts[] = $this->messages->get('progress.elapsed', ['elapsed' => sprintf('%.1f', $snapshot->elapsed)]);
+        $parts[] = self::time($this->messages, 'elapsed', $snapshot->elapsed, 'elapsed');
         $parts[] = $snapshot->eta === null ? $this->messages->get('progress.unknown_eta')
-            : $this->messages->get('progress.eta', ['remaining' => sprintf('%.1f', $snapshot->eta)]);
+            : self::time($this->messages, 'eta', $snapshot->eta, 'remaining');
         if ($snapshot->waitSeconds !== null) {
-            $parts[] = $this->messages->get('progress.wait', ['seconds' => $snapshot->waitSeconds]);
+            $parts[] = self::time($this->messages, 'wait', $snapshot->waitSeconds, 'seconds', false);
         }
         $text = implode(' | ', $parts);
         if ($this->tty) {
@@ -89,7 +89,33 @@ final class UpdateProgress implements Observer
 
         $messages ??= app(Messages::class);
 
-        return $messages->get('progress.summary', ['status' => $messages->get('phases.'.$label), 'elapsed' => sprintf('%.1f', max(0, $elapsed))]);
+        return self::time($messages, 'summary', $elapsed, 'elapsed', parameters: ['status' => $messages->get('phases.'.$label)]);
+    }
+
+    /** @param array<string, string> $parameters */
+    private static function time(
+        Messages $messages,
+        string $key,
+        float $duration,
+        string $shortPlaceholder,
+        bool $decimal = true,
+        array $parameters = [],
+    ): string {
+        $long = $duration > 60;
+        $duration = max(0, $decimal ? round($duration, 1) : round($duration));
+        if (! $long) {
+            $value = $decimal ? sprintf('%.1f', $duration) : (string) (int) $duration;
+
+            return $messages->get('progress.'.$key, array_merge($parameters, [$shortPlaceholder => $value]));
+        }
+
+        $minutes = (int) floor($duration / 60);
+        $seconds = $duration - $minutes * 60;
+
+        return $messages->get('progress.'.$key.'_minutes', array_merge($parameters, [
+            'minutes' => (string) $minutes,
+            'seconds' => $decimal ? sprintf('%.1f', $seconds) : (string) (int) $seconds,
+        ]));
     }
 
     public function endLine(): void
