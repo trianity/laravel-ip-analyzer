@@ -13,6 +13,8 @@ final class BoundedSink implements StreamInterface
 {
     use StreamDecoratorTrait;
 
+    private StreamInterface $stream;
+
     public int $bytes = 0;
 
     public ?int $total = null;

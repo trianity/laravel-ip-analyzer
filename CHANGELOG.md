@@ -4,6 +4,13 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.3.1] - 2026-10-08
+
+### Fixed
+
+- Declare the decorated stream used by the bounded HTTP sink so PHP 8.4 no longer
+  reports dynamic-property deprecations during update downloads and checks.
+
 ## [2.3.0] - 2026-10-04
 
 ### Added

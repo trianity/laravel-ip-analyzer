@@ -7,12 +7,31 @@ use GuzzleHttp\Middleware;
 use GuzzleHttp\Promise\Create;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Trianity\IpAnalyzer\Update\BoundedSink;
 use Trianity\IpAnalyzer\Update\GuzzleTransport;
 use Trianity\IpAnalyzer\Update\UpdateFailure;
 use Trianity\IpAnalyzer\Update\UpdateOptions;
 
 beforeEach(function () {
     config(['ip-analyzer.update.account_id' => '123456', 'ip-analyzer.update.license_key' => 'synthetic-secret']);
+});
+
+it('creates its decorated stream without a dynamic property deprecation', function () {
+    set_error_handler(static function (int $severity, string $message): bool {
+        if ($severity === E_DEPRECATED && str_contains($message, 'dynamic property')) {
+            throw new ErrorException($message, 0, $severity);
+        }
+
+        return false;
+    });
+
+    try {
+        $sink = new BoundedSink(null, 10);
+
+        expect($sink->write('abc'))->toBe(3);
+    } finally {
+        restore_error_handler();
+    }
 });
 
 it('strips authentication and cookies at R2 using the real Guzzle middleware stack', function ($method) {
