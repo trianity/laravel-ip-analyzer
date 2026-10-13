@@ -27,7 +27,61 @@ it('reports unavailable lookup sources with exit one', function () {
 it('reports database status without performing any IP lookup', function () {
     expect(Artisan::call('ip-data:status', ['--json' => true]))->toBe(0);
     $data = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
-    expect($data['country']['status'])->toBe('found')->and($data['country']['metadata']['ageDays'])->toEqual(0);
+    expect($data['country']['status'])->toBe('found')
+        ->and($data['country']['metadata']['ageDays'])->toEqual(0)
+        ->and($data['schedule'])->toBe([
+            'enabled' => false,
+            'cron' => '15 3 * * *',
+            'timezone' => 'UTC',
+            'valid' => true,
+        ]);
+});
+
+it('reports enabled scheduling without claiming scheduler health', function () {
+    config([
+        'ip-analyzer.update.schedule_enabled' => true,
+        'ip-analyzer.update.schedule_cron' => '15 3 * * 1,3,6',
+        'ip-analyzer.update.schedule_timezone' => 'Europe/Budapest',
+    ]);
+
+    expect(Artisan::call('ip-data:status', ['--json' => true]))->toBe(0);
+    $data = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+    expect($data['schedule'])->toBe([
+        'enabled' => true,
+        'cron' => '15 3 * * 1,3,6',
+        'timezone' => 'Europe/Budapest',
+        'valid' => true,
+    ])->and($data)->not->toHaveKeys(['schedulerRunning', 'schedulerHealthy']);
+});
+
+it('renders localized schedule status with English fallback', function (string $locale, string $expected) {
+    app()->setLocale($locale);
+    config(['ip-analyzer.update.schedule_enabled' => true]);
+
+    expect(Artisan::call('ip-data:status'))->toBe(0);
+    expect(Artisan::output())->toContain($expected);
+})->with([
+    ['en', 'Automatic updates: enabled'],
+    ['hu', 'Automatikus frissítés: engedélyezve'],
+    ['fr', 'Automatic updates: enabled'],
+]);
+
+it('reports invalid enabled scheduling as machine-readable configuration status', function () {
+    config([
+        'ip-analyzer.update.schedule_enabled' => true,
+        'ip-analyzer.update.schedule_cron' => 'invalid',
+    ]);
+
+    expect(Artisan::call('ip-data:status', ['--json' => true]))->toBe(2);
+    $data = json_decode(Artisan::output(), true, flags: JSON_THROW_ON_ERROR);
+    expect($data['country']['status'])->toBe('found')
+        ->and($data['schedule'])->toBe([
+            'enabled' => true,
+            'cron' => 'invalid',
+            'timezone' => 'UTC',
+            'valid' => false,
+            'errorCode' => 'schedule_cron',
+        ]);
 });
 
 it('distinguishes stale lookup and status exit codes', function () {

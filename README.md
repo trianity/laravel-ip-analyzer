@@ -1,6 +1,6 @@
 # Laravel IP Analyzer
 
-Documentation for **2.3.1** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
+Documentation for **2.4.0** · [Changelog](CHANGELOG.md) · [Magyar quickstart](docs/QUICKSTART-HU.md)
 
 Local Country and ASN facts with configurable observation rules for Laravel 12–13.
 PHP 8.4–8.5 is the tested range. The package reads manually installed MaxMind MMDB
@@ -15,10 +15,10 @@ empty match list does not certify safety.
 ## Installation and use
 
 Requirements: PHP 8.4 or 8.5, Laravel 12 or 13, and the PHP cURL and zlib extensions.
-For the 2.3 release series:
+For the 2.4 release series:
 
 ```sh
-composer require trianity/laravel-ip-analyzer:^2.3
+composer require trianity/laravel-ip-analyzer:^2.4
 php artisan vendor:publish --tag=ip-analyzer-config
 ```
 
@@ -162,9 +162,11 @@ php artisan about
 
 Human output includes localized status/error labels and an indented structured
 result; `--json` emits one compact parseable document without decoration. Lookup includes facts, source states/metadata/errors and matches.
-Status reports each source's readability/structural metadata status, without
-opening records or making a geographic probe. Found in status means metadata was
-read successfully; it is not an exhaustive integrity scan of every record.
+Status reports each source's readability/structural metadata status and the
+effective automatic-update configuration, without opening records or making a
+geographic probe. It does not prove that the host scheduler is running. Found in
+status means metadata was read successfully; it is not an exhaustive integrity
+scan of every record.
 `ip-data:verify` performs that full offline traversal and SHA-256 calculation for
 both configured files by default, or for the requested `--database` selections.
 Both configured sources are required for command availability.
@@ -202,8 +204,10 @@ Use a License Key, not your account login password. Put the values in the
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
-IP_ANALYZER_UPDATE_SCHEDULE=false
-IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_UPDATE_SCHEDULE=true
+IP_ANALYZER_UPDATE_CRON="15 3 * * *"
+IP_ANALYZER_UPDATE_TIMEZONE=Europe/Budapest
+IP_ANALYZER_VALIDATION_WORKERS=2
 IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
@@ -246,6 +250,39 @@ filesystem/platform constraints. Upgrading from 1.x does not require overwriting
 a published config: new update options receive defaults. Add credentials to the
 environment used when building the config cache; republishing with `--force`
 would overwrite your custom rules and paths.
+
+## Automatic update scheduling (2.4)
+
+Scheduling is disabled by default. With `IP_ANALYZER_UPDATE_SCHEDULE=true`, the
+package registers exactly one named `ip-data:update` event, using the configured
+cron expression and timezone with Laravel's `withoutOverlapping()` protection.
+It does not add `--check`, `--force` or a worker override, so normal update
+freshness checks, candidate validation, configured validation workers/timeouts and
+per-database locks remain in effect. It does not enable `onOneServer()`: application
+servers may have separate local MMDB files and may each need an update.
+
+The default is daily at 03:15 UTC. UTC avoids daylight-saving scheduling ambiguity;
+local timezones are supported and follow their daylight-saving behavior. For
+Monday, Wednesday and Saturday at 03:15, use:
+
+```dotenv
+IP_ANALYZER_UPDATE_CRON="15 3 * * 1,3,6"
+```
+
+The host must run Laravel's scheduler through `php artisan schedule:work` or a
+recurring `php artisan schedule:run`. An existing Supervisor-managed
+`schedule:work` needs no additional system cron. Check registration with
+`php artisan schedule:list`; this verifies registration, not scheduler health.
+After environment changes, rebuild the configuration cache and restart the
+application's long-lived scheduler process as appropriate, for example with the
+application-specific command `<restart-this-application-scheduler>`.
+
+Scheduled updates can take several minutes. Normal foreground scheduler execution
+can delay other tasks due at the same time, so choose a suitable maintenance time.
+The cadence is not a data-freshness guarantee. If upgrading with
+`IP_ANALYZER_UPDATE_SCHEDULE=true`, remove any old manual host
+`Schedule::command('ip-data:update')` entry to avoid duplicate scheduling. To keep
+manual host scheduling, leave the package setting false.
 
 ## Update and verification progress
 

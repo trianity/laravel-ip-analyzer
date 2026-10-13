@@ -7,6 +7,9 @@ namespace Trianity\IpAnalyzer\Console;
 use Throwable;
 use Trianity\IpAnalyzer\Enums\LookupStatus;
 use Trianity\IpAnalyzer\Lookup\LocalDatabase;
+use Trianity\IpAnalyzer\Support\Messages;
+use Trianity\IpAnalyzer\Update\ScheduleConfiguration;
+use Trianity\IpAnalyzer\Update\ScheduleConfigurationException;
 
 final class StatusCommand extends DataCommand
 {
@@ -16,9 +19,32 @@ final class StatusCommand extends DataCommand
     {
         try {
             $databases = $this->laravel->make(LocalDatabase::class);
-            $results = ['country' => $databases->read('country'), 'asn' => $databases->read('asn')];
+            $databaseResults = [
+                'country' => $databases->read('country'),
+                'asn' => $databases->read('asn'),
+            ];
+            try {
+                $schedule = ScheduleConfiguration::fromConfig(
+                    $this->laravel->make('config'),
+                    $this->laravel->make(Messages::class),
+                )->status();
+            } catch (ScheduleConfigurationException $exception) {
+                $this->renderResult([
+                    ...$databaseResults,
+                    'schedule' => ScheduleConfiguration::invalidStatus(
+                        $this->laravel->make('config'),
+                        $exception->setting,
+                    ),
+                ]);
+
+                return 2;
+            }
+            $results = [
+                ...$databaseResults,
+                'schedule' => $schedule,
+            ];
             $this->renderResult($results);
-            foreach ($results as $result) {
+            foreach ($databaseResults as $result) {
                 if ($result->status === LookupStatus::Unavailable || $result->metadata?->stale) {
                     return 1;
                 }

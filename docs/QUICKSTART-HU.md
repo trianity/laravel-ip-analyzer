@@ -5,8 +5,8 @@ Nincs automatikus tiltás, regisztrációs döntés vagy telemetria. A lookup, s
 verify és about nem használ hálózatot; a kifejezetten indított `ip-data:update`,
 a read-only `--check` módot is beleértve, HTTPS-kérést végezhet.
 
-1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a 2.3-as kiadás
-   telepítése: `composer require trianity/laravel-ip-analyzer:^2.3`.
+1. Laravel 12 vagy 13 alkalmazásban, PHP 8.4/8.5 mellett a 2.4-es kiadás
+   telepítése: `composer require trianity/laravel-ip-analyzer:^2.4`.
    Helyi forráskódból történő fejlesztéshez használd a
    [README helyi fejlesztői telepítését](../README.md#local-development-installation).
 2. Publikáld a konfigurációt:
@@ -85,8 +85,10 @@ könyvtárában. Az alábbiak kizárólag helyőrzők:
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
-IP_ANALYZER_UPDATE_SCHEDULE=false
-IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_UPDATE_SCHEDULE=true
+IP_ANALYZER_UPDATE_CRON="15 3 * * *"
+IP_ANALYZER_UPDATE_TIMEZONE=Europe/Budapest
+IP_ANALYZER_VALIDATION_WORKERS=2
 IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
@@ -102,6 +104,8 @@ része olvassa ezeket:
     'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
     'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
     'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+    'schedule_cron' => env('IP_ANALYZER_UPDATE_CRON', '15 3 * * *'),
+    'schedule_timezone' => env('IP_ANALYZER_UPDATE_TIMEZONE', 'UTC'),
 ],
 ```
 
@@ -191,19 +195,36 @@ de nem kapcsolja ki a validációt, a régebbi build tiltását vagy a cooldown-
 A korábbi 1.x konfiguráció megtartható; az új opciók alapértékeket kapnak.
 Ne írd felül ellenőrizetlenül a publisholt fájlt, mert abban saját szabályok lehetnek.
 
-Az ütemezés alkalmazásoldali opt-in. Laravel `routes/console.php` példa:
+Az ütemezés továbbra is opt-in, alapból ki van kapcsolva. A 2.4-től az
+`IP_ANALYZER_UPDATE_SCHEDULE=true` egyetlen névvel ellátott `ip-data:update`
+eseményt regisztrál a beállított cron és időzóna szerint,
+`withoutOverlapping()` védelemmel. Nem használ `--check`, `--force` vagy
+`--workers` kapcsolót: a normál frissítési út, a konfigurált worker/timeout és az
+adatbázisonkénti lock marad érvényben. Az `onOneServer()` nincs bekapcsolva, mert
+az alkalmazásszerverek külön helyi MMDB-fájlokat tarthatnak.
 
-```php
-use Illuminate\Support\Facades\Schedule;
+Az alapérték naponta 03:15 UTC. Az UTC elkerüli a nyári/téli időszámítás
+ütemezési bizonytalanságát; a helyi időzónák támogatottak, de követik a DST
+viselkedését. Hétfőn, szerdán és szombaton 03:15-kor futó példa:
 
-if (config('ip-analyzer.update.schedule_enabled', false)) {
-    Schedule::command('ip-data:update')->everySixHours()->withoutOverlapping();
-}
+```dotenv
+IP_ANALYZER_UPDATE_CRON="15 3 * * 1,3,6"
 ```
 
-A csomag önmagában nem regisztrál ütemezett feladatot. A fenti kód és az
-`IP_ANALYZER_UPDATE_SCHEDULE=true` együtt engedélyezi az alkalmazás normál
-schedulerében; nincs párhuzamos automatikus regisztráció.
+Ez nem pontos, gördülő 72 órás intervallum. A hostnak futtatnia kell a Laravel
+schedulert `php artisan schedule:work` folyamattal vagy ismétlődő
+`php artisan schedule:run` hívással. A Supervisor alatt már futó `schedule:work`
+mellé nem kell rendszer-cron. A regisztrációt a `php artisan schedule:list`
+mutatja; ez és az `ip-data:status` sem bizonyítja a scheduler folyamat egészségét.
+Env-módosítás után építsd újra a config cache-t, és szükség szerint indítsd újra
+az alkalmazás hosszú életű scheduler folyamatát, például az alkalmazásspecifikus
+`<restart-this-application-scheduler>` művelettel.
+
+Egy frissítés több percig tarthat, és a normál scheduler-futás késleltetheti az
+ugyanakkorra eső többi feladatot; válassz megfelelő karbantartási időpontot. A napi
+ütemezés nem jelent konkrét frissességi garanciát. Frissítéskor, ha a változó már
+`true`, töröld a korábbi kézi host `Schedule::command('ip-data:update')` bejegyzést,
+különben duplán ütemezel. Kézi host ütemezéshez hagyd a csomagkapcsolót kikapcsolva.
 
 Updater kilépési kódok: 0 minden kért művelet befejeződött; check esetén az
 `update_available` és `freshness_unknown` is 0 lehet. Az 1 hiba vagy részleges

@@ -28,5 +28,7 @@ return [
         'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
         'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
         'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+        'schedule_cron' => env('IP_ANALYZER_UPDATE_CRON', '15 3 * * *'),
+        'schedule_timezone' => env('IP_ANALYZER_UPDATE_TIMEZONE', 'UTC'),
     ],
 ];

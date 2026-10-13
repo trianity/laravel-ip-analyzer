@@ -17,6 +17,7 @@
     ],
     "require": {
         "composer-runtime-api": "^2.0",
+        "dragonmantank/cron-expression": "^3.4",
         "ext-curl": "*",
         "ext-zlib": "*",
         "geoip2/geoip2": "^3.4",

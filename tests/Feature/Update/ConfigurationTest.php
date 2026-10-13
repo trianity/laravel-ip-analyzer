@@ -1,6 +1,8 @@
 <?php
 
 use Trianity\IpAnalyzer\Contracts\IpLookup;
+use Trianity\IpAnalyzer\Support\Messages;
+use Trianity\IpAnalyzer\Update\ScheduleConfiguration;
 use Trianity\IpAnalyzer\Update\UpdateOptions;
 use Trianity\IpAnalyzer\Update\ValidationOptions;
 
@@ -58,6 +60,12 @@ it('supports a published V1 configuration through config cache', function () {
             ->and(app(UpdateOptions::class)->integer('timeout'))->toBe(120)
             ->and(app(ValidationOptions::class)->workers())->toBe(1)
             ->and(app(ValidationOptions::class)->timeout())->toBe(1800)
+            ->and(ScheduleConfiguration::fromConfig(app('config'), app(Messages::class))->status())->toBe([
+                'enabled' => false,
+                'cron' => '15 3 * * *',
+                'timezone' => 'UTC',
+                'valid' => true,
+            ])
             ->and(app(IpLookup::class)->lookup('127.0.0.1')->countryStatus->value)->toBe('non_public');
     } finally {
         $this->artisan('config:clear')->assertSuccessful();

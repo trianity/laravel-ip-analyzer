@@ -34,6 +34,20 @@ final class HumanResult
         foreach ($data['results'] ?? [] as $row) {
             $lines = array_merge($lines, $this->source($row['database'], $row));
         }
+        if (isset($data['schedule']) && is_array($data['schedule'])) {
+            if (! $data['schedule']['valid']) {
+                $lines[] = $this->messages->get('schedule.invalid', [
+                    'message' => $this->messages->get('configuration.'.$data['schedule']['errorCode']),
+                ]);
+            }
+            $lines[] = $this->messages->get('schedule.summary', [
+                'status' => $this->messages->get('schedule.'.($data['schedule']['enabled'] === true ? 'enabled' : 'disabled')),
+            ]);
+            $lines[] = $this->messages->get('schedule.configuration', [
+                'cron' => $data['schedule']['cron'],
+                'timezone' => $data['schedule']['timezone'],
+            ]);
+        }
 
         return $lines;
     }

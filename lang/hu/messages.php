@@ -82,7 +82,7 @@ return [
     ],
     'commands' => [
         'lookup' => 'Helyi IP-adatok lekérdezése és megfigyelési szabályok kiértékelése',
-        'status' => 'Helyi adatbázis-metaadatok ellenőrzése IP-lekérdezés nélkül',
+        'status' => 'Helyi adatbázis-metaadatok és automatikus frissítési konfiguráció ellenőrzése hálózat nélkül',
         'update' => 'Helyi MaxMind-adatbázisok kifejezett letöltése és atomikus frissítése',
         'verify' => 'Telepített helyi MaxMind-adatbázisok teljes integritásvizsgálata',
     ],
@@ -167,7 +167,10 @@ return [
         'invalid' => 'Hibás frissítési konfiguráció.',
         'option' => 'Hibás frissítési beállítás: :option.',
         'validation_option' => 'Hibás validálási beállítás: :option.',
-        'schedule' => 'A schedule_enabled értékének logikainak kell lennie.',
+        'schedule' => 'Az ip-analyzer.update.schedule_enabled beállítás értékének logikainak kell lennie.',
+        'schedule_enabled' => 'Az ip-analyzer.update.schedule_enabled beállítás értékének logikainak kell lennie.',
+        'schedule_cron' => 'Az ip-analyzer.update.schedule_cron beállításnak érvényes cron-kifejezésnek kell lennie.',
+        'schedule_timezone' => 'Az ip-analyzer.update.schedule_timezone beállításnak érvényes időzónának kell lennie.',
         'hosts' => 'Érvénytelen a frissítési hosztok engedélyezési listája.',
         'hostnames' => 'Csak ellenőrzött MaxMind/R2-hosztnevek engedélyezhetők.',
         'sources' => 'Érvénytelen letöltési források.',
@@ -178,5 +181,12 @@ return [
         'distinct' => 'A Country és ASN céljának különböznie kell.',
         'directory' => 'A célkönyvtár nem oldható fel.',
         'selection' => 'Az adatbázis értéke country vagy asn lehet.',
+    ],
+    'schedule' => [
+        'invalid' => 'Automatikus frissítési konfiguráció: :message',
+        'summary' => 'Automatikus frissítés: :status',
+        'configuration' => 'Ütemezés: :cron (:timezone)',
+        'enabled' => 'engedélyezve',
+        'disabled' => 'letiltva',
     ],
 ];

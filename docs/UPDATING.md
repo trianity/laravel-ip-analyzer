@@ -52,8 +52,10 @@ own directory or edit files under `vendor/`:
 ```dotenv
 IP_ANALYZER_MAXMIND_ACCOUNT_ID=YOUR_ACCOUNT_ID
 IP_ANALYZER_MAXMIND_LICENSE_KEY=YOUR_LICENSE_KEY
-IP_ANALYZER_UPDATE_SCHEDULE=false
-IP_ANALYZER_VALIDATION_WORKERS=1
+IP_ANALYZER_UPDATE_SCHEDULE=true
+IP_ANALYZER_UPDATE_CRON="15 3 * * *"
+IP_ANALYZER_UPDATE_TIMEZONE=Europe/Budapest
+IP_ANALYZER_VALIDATION_WORKERS=2
 IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
@@ -74,6 +76,8 @@ In the host application's `config/ip-analyzer.php`, the relevant section is:
     'account_id' => env('IP_ANALYZER_MAXMIND_ACCOUNT_ID'),
     'license_key' => env('IP_ANALYZER_MAXMIND_LICENSE_KEY'),
     'schedule_enabled' => env('IP_ANALYZER_UPDATE_SCHEDULE', false),
+    'schedule_cron' => env('IP_ANALYZER_UPDATE_CRON', '15 3 * * *'),
+    'schedule_timezone' => env('IP_ANALYZER_UPDATE_TIMEZONE', 'UTC'),
 ],
 ```
 
@@ -135,7 +139,9 @@ validation workers.
 | max_records | 5000000 | Maximum SDK network-range traversal operations |
 | lock_timeout | 0 | Seconds to wait for a target lock; 0 means immediate busy |
 | cleanup_age | 86400 | Minimum age for cleanup of abandoned owned staging |
-| schedule_enabled | false | Switch for the application scheduler example |
+| schedule_enabled | false | Register the package-managed update event |
+| schedule_cron | 15 3 * * * | Cron expression for the update event |
+| schedule_timezone | UTC | Timezone used to evaluate the cron expression |
 
 Validation has a separate, cached-config-safe section:
 
@@ -330,20 +336,50 @@ Neither `up_to_date` nor lightweight local status means integrity was verified.
 A per-target failure can still include installed=true after metadata failure.
 Read all results; partialFailure marks success/installation mixed with failures/busy.
 
-The package registers **no scheduled event**. In a consuming application's
-`routes/console.php`, add this once and set the schedule flag true to opt in:
+Since 2.4, `IP_ANALYZER_UPDATE_SCHEDULE=true` registers one package-managed,
+named `ip-data:update` event. It runs at `15 3 * * *` in UTC by default and uses
+Laravel's `withoutOverlapping()`. It invokes the normal command without `--check`,
+`--force` or `--workers`, so the configured validation worker count and timeout,
+the v2.3 lightweight freshness path, full candidate validation and per-database
+locks remain active. `onOneServer()` is deliberately not enabled: nodes can have
+separate local MMDB files and may each require an update.
 
-```php
-use Illuminate\Support\Facades\Schedule;
+Daily local-time example:
 
-if (config('ip-analyzer.update.schedule_enabled', false)) {
-    Schedule::command('ip-data:update')->everySixHours()->withoutOverlapping();
-}
+```dotenv
+IP_ANALYZER_UPDATE_SCHEDULE=true
+IP_ANALYZER_UPDATE_CRON="15 3 * * *"
+IP_ANALYZER_UPDATE_TIMEZONE=Europe/Budapest
+IP_ANALYZER_VALIDATION_WORKERS=2
+IP_ANALYZER_VALIDATION_WORKER_TIMEOUT=1800
 ```
 
-Run the application's normal Laravel scheduler. onOneServer is appropriate only
-with a suitable shared cache and genuinely shared database storage; otherwise
-each node needs its own data. Do not add a second automatic event for the same job.
+Optional three-times-weekly schedule:
+
+```dotenv
+IP_ANALYZER_UPDATE_CRON="15 3 * * 1,3,6"
+```
+
+That expression runs on Monday, Wednesday and Saturday; it is not described as
+an exact rolling 72-hour interval. UTC is the default to avoid daylight-saving
+scheduling ambiguity. Named local timezones are supported and follow their DST
+behavior. Invalid cron/timezone values are rejected when scheduling is enabled;
+they are irrelevant when scheduling is disabled.
+
+The host must run `php artisan schedule:work` or invoke `php artisan schedule:run`
+recurringly. An existing Supervisor-managed `schedule:work` requires no additional
+system cron. `php artisan schedule:list` verifies event registration, but neither
+that command nor `ip-data:status` proves that Supervisor/cron is healthy. Rebuild
+the configuration cache after environment changes and restart long-lived scheduler
+processes as appropriate, using an application-specific operation such as
+`<restart-this-application-scheduler>` rather than restarting every Supervisor service.
+
+Normal scheduled execution can take several minutes and can delay other tasks due
+at the same time; select a suitable maintenance time. A daily cadence is not a
+specific freshness guarantee. Users upgrading with the schedule variable already
+enabled must remove the former manual `Schedule::command('ip-data:update')` host
+snippet to avoid duplicate scheduling. Users retaining manual host scheduling
+must leave package scheduling disabled.
 
 ## Licensing
 

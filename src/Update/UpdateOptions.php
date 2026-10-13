@@ -30,6 +30,8 @@ final class UpdateOptions
             'lock_timeout' => 0, 'cleanup_age' => 86400,
             'allowed_hosts' => [self::ORIGIN, self::R2],
             'schedule_enabled' => false,
+            'schedule_cron' => ScheduleConfiguration::DEFAULT_CRON,
+            'schedule_timezone' => ScheduleConfiguration::DEFAULT_TIMEZONE,
             'sources' => [
                 'country' => 'https://download.maxmind.com/geoip/databases/GeoLite2-Country/download?suffix=tar.gz',
                 'asn' => 'https://download.maxmind.com/geoip/databases/GeoLite2-ASN/download?suffix=tar.gz',

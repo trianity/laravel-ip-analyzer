@@ -82,7 +82,7 @@ return [
     ],
     'commands' => [
         'lookup' => 'Read local IP facts and evaluate observation rules',
-        'status' => 'Inspect local database metadata without querying an IP',
+        'status' => 'Inspect local database metadata and automatic-update configuration without network access',
         'update' => 'Explicitly download and atomically update local MaxMind databases',
         'verify' => 'Deeply verify the integrity of installed local MaxMind databases',
     ],
@@ -167,7 +167,10 @@ return [
         'invalid' => 'Invalid update configuration.',
         'option' => 'Invalid update option: :option.',
         'validation_option' => 'Invalid validation option: :option.',
-        'schedule' => 'schedule_enabled must be boolean.',
+        'schedule' => 'The ip-analyzer.update.schedule_enabled setting must be boolean.',
+        'schedule_enabled' => 'The ip-analyzer.update.schedule_enabled setting must be boolean.',
+        'schedule_cron' => 'The ip-analyzer.update.schedule_cron setting must be a valid cron expression.',
+        'schedule_timezone' => 'The ip-analyzer.update.schedule_timezone setting must be a valid timezone.',
         'hosts' => 'Invalid update host allowlist.',
         'hostnames' => 'Only reviewed MaxMind/R2 hostnames may be allowed.',
         'sources' => 'Invalid download sources.',
@@ -178,5 +181,12 @@ return [
         'distinct' => 'Country and ASN targets must be distinct.',
         'directory' => 'Cannot resolve target directory.',
         'selection' => 'Database must be country or asn.',
+    ],
+    'schedule' => [
+        'invalid' => 'Automatic update configuration: :message',
+        'summary' => 'Automatic updates: :status',
+        'configuration' => 'Schedule: :cron (:timezone)',
+        'enabled' => 'enabled',
+        'disabled' => 'disabled',
     ],
 ];

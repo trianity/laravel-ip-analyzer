@@ -4,6 +4,21 @@ Notable changes to Laravel IP Analyzer are recorded here.
 Versions follow Semantic Versioning. Publication is identified by the corresponding
 Git tag; these notes do not by themselves indicate that a release was published.
 
+## [2.4.0] - 2026-10-13
+
+### Added
+
+- Add opt-in package-managed `ip-data:update` scheduling with configurable cron
+  expression/timezone, overlap protection and localized validation.
+- Expose the effective schedule configuration in human and JSON
+  `ip-data:status` output without claiming host scheduler health.
+
+### Changed
+
+- `IP_ANALYZER_UPDATE_SCHEDULE=true` now registers a real scheduled task. Remove
+  an existing manual host schedule when opting in to avoid duplicate execution.
+- Declare the cron expression parser as a direct runtime dependency.
+
 ## [2.3.1] - 2026-10-08
 
 ### Fixed
